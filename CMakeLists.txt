@@ -5,4 +5,8 @@ set(CMAKE_CXX_STANDARD 23)
 
 add_executable(Kayles main.cpp
         kayles_client.cpp
-        kayles_server.cpp)
+        kayles_server.cpp
+        common.cpp
+        common.h
+        game_logic.h
+        err.h)
