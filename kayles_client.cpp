@@ -1,6 +1,5 @@
 #include <unistd.h>
 #include <iostream>
-#include <cstdlib>
 #include <string>
 
 #include "common.h"
@@ -76,6 +75,7 @@ static void parse_client_arguments(int argc, char* argv[], ClientConfig& config)
             break;
 
         case '?':
+        default:
             cerr << "error: unknown option or missing argument. expected: -a, -p, -m, -t."<< endl;
             exit(EXIT_FAILURE);
         }
