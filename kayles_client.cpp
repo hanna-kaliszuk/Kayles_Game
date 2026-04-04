@@ -6,6 +6,10 @@
 
 using namespace std;
 
+#define MAX_PORT_NUMBER 65535
+#define MAX_TIMEOUT_VALUE 99
+#define MIN_VALUE 1
+
 struct ClientConfig {
     string address;
     int port;
@@ -39,7 +43,7 @@ static void parse_client_arguments(int argc, char* argv[], ClientConfig& config)
                 exit(EXIT_FAILURE);
             }
 
-            config.port = validate_and_convert_port(optarg, 1);
+            config.port = validate_and_convert_number(optarg, MIN_VALUE, MAX_PORT_NUMBER);
 
             if (config.port == -1) {
                 cerr << "error: invalid port number. expected value from 1 to 2^16 - 1." << endl;
@@ -65,7 +69,7 @@ static void parse_client_arguments(int argc, char* argv[], ClientConfig& config)
                 exit(EXIT_FAILURE);
             }
 
-            config.timeout = validate_and_convert_timeout(optarg);
+            config.timeout = validate_and_convert_number(optarg, MIN_VALUE, MAX_TIMEOUT_VALUE);
             if (config.timeout == -1) {
                 cerr << "error: invalid timeout value. expected a value from 1 to 99." << endl;
                 exit(EXIT_FAILURE);
@@ -85,4 +89,16 @@ static void parse_client_arguments(int argc, char* argv[], ClientConfig& config)
         cerr << "error: missing required arguments." << endl;
         exit(EXIT_FAILURE);
     }
+}
+
+int main(int argc, char* argv[]) {
+    ClientConfig config;
+
+    parse_client_arguments(argc, argv, config);
+
+    cout << "--- SUCCESS: arguments parsed correctly ---" << endl;
+    cout << "address:       " << config.address << endl;
+    cout << "port:          " << config.port << endl;
+    cout << "message:       " << config.message << endl;
+    cout << "timeout:       " << config.timeout << endl;
 }
