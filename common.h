@@ -1,0 +1,4 @@
+#ifndef KAYLES_COMMON_H
+#define KAYLES_COMMON_H
+
+#endif //KAYLES_COMMON_H

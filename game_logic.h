@@ -1,0 +1,4 @@
+#ifndef KAYLES_GAME_LOGIC_H
+#define KAYLES_GAME_LOGIC_H
+
+#endif //KAYLES_GAME_LOGIC_H
