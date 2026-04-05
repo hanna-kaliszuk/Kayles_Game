@@ -1,10 +1,13 @@
 #include <cinttypes>
+#include <cstring>
 #include <arpa/inet.h>
 #include "common.h"
 #include "err.h"
 #include <sys/socket.h>
 #include <netdb.h>
 #include <vector>
+
+#define BUFFER_SIZE 1000
 
 struct GameState {
     uint32_t player_a_id;
@@ -53,18 +56,44 @@ static int create_sever_socket (const AppConfig& config) {
     return socket_fd;
 }
 
+static void run_server(const AppConfig& config) {
+    int socket_fd = create_sever_socket(config);
+    static char buffer[BUFFER_SIZE];
+
+    while (true) {
+        struct sockaddr_in client_address;
+        socklen_t client_address_length = sizeof(client_address);
+
+        ssize_t received_length = recvfrom(socket_fd, buffer, BUFFER_SIZE - 1, 0,
+            reinterpret_cast<struct sockaddr*>(&client_address), &client_address_length);
+
+        if (received_length < 0) {
+            syserr("recvfrom failed");
+        }
+
+        buffer[received_length] = '\0';
+
+        char client_ip[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &client_address.sin_addr, client_ip, sizeof(client_ip));
+        uint16_t client_port = ntohs(client_address.sin_port);
+
+        printf("Received %zd bytes from %s:%u: %s\n",
+               received_length, client_ip, client_port, buffer);
+
+        const char* response = "seen.";
+        sendto(socket_fd, response, strlen(response), 0,
+            reinterpret_cast<struct sockaddr*>(&client_address), client_address_length);
+    }
+}
+
 int main(int argc, char* argv[]) {
     AppConfig config;
     GameState new_game;
 
     parse_arguments(argc, argv, config, "r:a:p:t:", true);
     initialize_pawn_row(config.pawn_row, new_game);
-    int socket_fd = create_sever_socket(config);
 
-    printf("\n listening on port %" PRIu16 "\n", config.port);
-    if (socket_fd != 1) {
-        cout << "";
-    }
+    run_server(config);
 
     return 0;
 }

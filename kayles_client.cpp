@@ -30,6 +30,10 @@ static int create_client_socket(const AppConfig& config) {
         fatal("invalid IP address format");
     }
 
+    if (connect(socket_fd, reinterpret_cast<struct sockaddr*>(&server_address), sizeof(server_address)) < 0) {
+        syserr("connect failed");
+    }
+
     return socket_fd;
 }
 
@@ -38,6 +42,4 @@ int main(int argc, char* argv[]) {
 
     parse_arguments(argc, argv, config, "m:a:p:t:", false);
 
-    printf("Client ready. Target server: %s:%d (timeout: %ds)\n",
-           config.address.c_str(), config.port, config.timeout);
 }
