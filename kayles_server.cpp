@@ -3,7 +3,6 @@
 #include "common.h"
 #include "err.h"
 #include <sys/socket.h>
-#include <errno.h>
 #include <netdb.h>
 #include <vector>
 

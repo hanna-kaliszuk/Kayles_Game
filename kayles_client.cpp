@@ -1,4 +1,5 @@
 #include "common.h"
+#include "err.h"
 
 #define MAX_PORT_NUMBER 65535
 #define MAX_TIMEOUT_VALUE 99
@@ -24,36 +25,34 @@ static void parse_client_arguments(int argc, char* argv[], ClientConfig& config)
     while ((opt = getopt(argc, argv, "a:p:m:t:")) != -1) {
         switch (opt) {
         case 'a':
-            ensure_not_set(has_address, "error: multiple -a options provided.");
+            ensure_not_set(has_address, "multiple -a options provided.");
             config.address = optarg;
             has_address = true;
             break;
 
         case 'p':
-            ensure_not_set(has_port, "error: multiple -p options provided.");
+            ensure_not_set(has_port, "multiple -p options provided.");
             config.port = validate_and_convert_number(optarg, MIN_PORT_VALUE, MAX_PORT_NUMBER);
 
             if (config.port == INVALID_VALUE) {
-                cerr << "error: invalid port number. expected value from 1 to 2^16 - 1." << endl;
-                exit(EXIT_FAILURE);
+                fatal("invalid port number. expected value from 1 to 2^16 - 1.");
             }
 
             has_port = true;
             break;
 
         case 'm':
-            ensure_not_set(has_message, "error: multiple -m options provided.");
+            ensure_not_set(has_message, "multiple -m options provided.");
             config.message = optarg;
             has_message = true;
             break;
 
         case 't':
-            ensure_not_set(has_timeout, "error: multiple -t options provided." );
-        config.timeout = validate_and_convert_number(optarg, MIN_TIMEOUT_VALUE, MAX_TIMEOUT_VALUE);
+            ensure_not_set(has_timeout, "multiple -t options provided." );
+            config.timeout = validate_and_convert_number(optarg, MIN_TIMEOUT_VALUE, MAX_TIMEOUT_VALUE);
 
             if (config.timeout == INVALID_VALUE) {
-                cerr << "error: invalid timeout value. expected a value from 1 to 99." << endl;
-                exit(EXIT_FAILURE);
+                fatal("invalid timeout value. expected a value from 1 to 99.");
             }
 
             has_timeout = true;
@@ -61,14 +60,12 @@ static void parse_client_arguments(int argc, char* argv[], ClientConfig& config)
 
         case '?':
         default:
-            cerr << "error: unknown option or missing argument. expected: -a, -p, -m, -t"<< endl;
-            exit(EXIT_FAILURE);
+            fatal("unknown option or missing argument. expected: -a, -p, -m, -t");
         }
     }
 
     if (!has_address || !has_port || !has_message || !has_timeout) {
-        cerr << "error: missing required arguments. expected: -a, -p, -m, -t" << endl;
-        exit(EXIT_FAILURE);
+        fatal("missing required arguments. expected: -a, -p, -m, -t");
     }
 }
 
