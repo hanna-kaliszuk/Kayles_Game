@@ -1,4 +1,5 @@
 #include "common.h"
+#include "err.h"
 
 #include <cstdlib>
 
@@ -24,7 +25,6 @@ int validate_and_convert_number(const char* text_value, int min_value, int max_v
 
 void ensure_not_set(bool flag, const string& message) {
     if (flag) {
-        cerr << message << endl;
-        exit(EXIT_FAILURE);
+        fatal(message.c_str());
     }
 }

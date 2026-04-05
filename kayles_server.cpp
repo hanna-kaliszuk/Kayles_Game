@@ -1,4 +1,10 @@
+#include <cinttypes>
+#include <arpa/inet.h>
 #include "common.h"
+#include "err.h"
+#include <sys/socket.h>
+#include <errno.h>
+#include <netdb.h>
 #include <vector>
 
 #define MAX_PORT_NUMBER 65535
@@ -60,28 +66,27 @@ static void parse_server_arguments(int argc, char* argv[], ServerConfig& config)
     while ((opt = getopt(argc, argv, "r:a:p:t:")) != -1) {
         switch (opt) {
         case 'r':
-            ensure_not_set(has_pawns, "error: multiple -r options provided.");
+            ensure_not_set(has_pawns, "multiple -r options provided.");
             if (!is_valid_pawn_row(optarg)) {
-                cerr << "error: invalid pawn row. expected a non-empty string of '0' and '1' with the first and last "
-                        "one being '1'" << endl;
-                exit(EXIT_FAILURE);
+                fatal("invalid pawn row. expected a non-empty string of '0' and '1' with the first and last "
+                        "one being '1'");
             }
             has_pawns = true;
             config.pawn_row = optarg;
             break;
 
         case 'a':
-            ensure_not_set(has_address, "error: multiple -a options provided.");
+            ensure_not_set(has_address, "multiple -a options provided.");
             config.address = optarg;
             has_address = true;
             break;
 
         case 'p':
-            ensure_not_set(has_port, "error: multiple -p options provided.");
+            ensure_not_set(has_port, "multiple -p options provided.");
             config.port = validate_and_convert_number(optarg, MIN_PORT_VALUE, MAX_PORT_NUMBER);
 
             if (config.port == INVALID_VALUE) {
-                cerr << "error: invalid port number. expected value from 0 to 2^16 - 1." << endl;
+                fatal("invalid port number. expected value from 0 to 2^16 - 1.");
                 exit(EXIT_FAILURE);
             }
 
@@ -89,12 +94,11 @@ static void parse_server_arguments(int argc, char* argv[], ServerConfig& config)
             break;
 
         case 't':
-            ensure_not_set(has_timeout, "error: multiple -t options provided." );
+            ensure_not_set(has_timeout, "multiple -t options provided." );
             config.timeout = validate_and_convert_number(optarg, MIN_TIMEOUT_VALUE, MAX_TIMEOUT_VALUE);
 
             if (config.timeout == INVALID_VALUE) {
-                cerr << "error: invalid timeout value. expected a value from 1 to 99." << endl;
-                exit(EXIT_FAILURE);
+                fatal("invalid timeout value. expected a value from 1 to 99.");
             }
 
             has_timeout = true;
@@ -102,14 +106,12 @@ static void parse_server_arguments(int argc, char* argv[], ServerConfig& config)
 
         case '?':
         default:
-            cerr << "error: unknown option or missing argument. expected: -r, -a, -p, -t"<< endl;
-            exit(EXIT_FAILURE);
+            fatal("unknown option or missing argument. expected: -r, -a, -p, -t");
         }
     }
 
     if (!has_pawns || !has_address || !has_port || !has_timeout) {
-        cerr << "error: missing required arguments. expected: -r, -a, -p, -t" << endl;
-        exit(EXIT_FAILURE);
+        fatal("missing required arguments. expected: -r, -a, -p, -t");
     }
 
     cout << "--- SUCCESS: arguments parsed correctly ---" << endl;
@@ -117,6 +119,29 @@ static void parse_server_arguments(int argc, char* argv[], ServerConfig& config)
     cout << "address:       " << config.address << endl;
     cout << "port:          " << config.port << endl;
     cout << "timeout:       " << config.timeout << endl;
+}
+
+static int create_sever_socket (const ServerConfig& config) {
+    int socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
+
+    if (socket_fd < 0) {
+        syserr("unable to create socket for server socket.");
+    }
+
+    struct sockaddr_in server_address{};
+    server_address.sin_family = AF_INET;
+    server_address.sin_port = htons(config.port);
+
+    if (inet_pton(AF_INET, config.address.c_str(), &server_address.sin_addr) <= 0) {
+        fatal("invalid IP address provided.");
+    }
+
+    if (::bind(socket_fd, reinterpret_cast<struct sockaddr *>(&server_address),
+        static_cast<socklen_t>(sizeof(server_address))) < 0) {
+        syserr("unable to bind to port %d", config.port);
+    }
+
+    return socket_fd;
 }
 
 int main(int argc, char* argv[]) {
@@ -130,6 +155,14 @@ int main(int argc, char* argv[]) {
     cout << "max pawn: " << static_cast<int>(new_game.max_pawn) << endl;
     cout << "pawns: ";
     for (size_t i = 0; i < config.pawn_row.length(); i++) {
-        cout << config.pawn_row[i] << " ";
+        cout << config.pawn_row[i];
     }
+
+    int socket_fd = create_sever_socket(config);
+    printf("\n listening on port %" PRIu16 "\n", config.port);
+    if (socket_fd != 1) {
+        cout << "";
+    }
+
+    return 0;
 }

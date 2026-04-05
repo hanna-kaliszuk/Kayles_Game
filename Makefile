@@ -5,10 +5,10 @@ TARGETS = kayles_server kayles_client
 
 all: $(TARGETS)
 
-kayles_server: kayles_server.o common.o
+kayles_server: kayles_server.o common.o err.o
 	$(CXX) $(CXXFLAGS) -o $@ $^
 
-kayles_client: kayles_client.o common.o
+kayles_client: kayles_client.o common.o err.o
 	$(CXX) $(CXXFLAGS) -o $@ $^
 
 kayles_server.o: kayles_server.cpp common.h err.h game_logic.h
@@ -18,6 +18,9 @@ kayles_client.o: kayles_client.cpp common.h err.h
 	$(CXX) $(CXXFLAGS) -c $<
 
 common.o: common.cpp common.h err.h
+	$(CXX) $(CXXFLAGS) -c $<
+
+err.o : err.cpp err.h
 	$(CXX) $(CXXFLAGS) -c $<
 
 clean:
