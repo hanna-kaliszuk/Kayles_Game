@@ -10,4 +10,5 @@ add_executable(Kayles
         common.h
         game_logic.h
         err.h
-        err.cpp)
+        err.cpp
+        game_logic.cpp)

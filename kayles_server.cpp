@@ -1,9 +1,10 @@
 #include <cinttypes>
 #include <cstring>
-#include <functional>
+
 #include <arpa/inet.h>
 #include "common.h"
 #include "err.h"
+#include "game_logic.h"
 #include <sys/socket.h>
 #include <netdb.h>
 #include <vector>
@@ -12,56 +13,8 @@
 #define BUFFER_SIZE 1000
 #define DELIMITER '/'
 
-constexpr uint8_t WAITING_FOR_OPPONENT = 0;
-constexpr uint8_t TURN_A = 1;
-constexpr uint8_t TURN_B = 2;
-
 static uint32_t next_game_id = 1000;
 static uint32_t next_player_id = 100;
-
-struct GameState {
-    uint32_t player_a_id;
-    uint32_t player_b_id;
-    uint8_t status;
-    uint8_t max_pawn;
-    vector<uint8_t> pawn_row;
-};
-
-using MessageHandler = function<void(
-    const vector<string>& parts,
-    unordered_map<uint32_t, GameState>& active_games,
-    const GameState& template_game,
-    int socket_fd,
-    const struct sockaddr_in& client_addr
-)>;
-
-static void initialize_pawn_row(const string& str_pawns, GameState& game) {
-    game.max_pawn = static_cast<uint8_t>(str_pawns.length() - 1);
-
-    const size_t num_bytes = (game.max_pawn / 8) + 1;
-
-    game.pawn_row.assign(num_bytes, 0);
-    for (size_t i = 0; i < str_pawns.length(); i++) {
-        if (str_pawns[i] == '1') {
-            size_t byte_index = i /8;
-            size_t bit_index = 7 - (i % 8);
-
-            game.pawn_row[byte_index] |= (1 << bit_index);
-        }
-    }
-}
-
-static string serialize_pawn_row(const GameState& game) {
-    string result = "";
-
-    for (int i = 0; i <= game.max_pawn; i++) {
-        size_t byte_index = i / 8;
-        size_t bit_index = 7 - (i % 8);
-        bool is_set = (game.pawn_row[byte_index] & (1 << bit_index)) != 0;
-        result += (is_set ? "1" : "0");
-    }
-    return result;
-}
 
 static int create_sever_socket(const AppConfig& config) {
     int socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -131,7 +84,8 @@ static void handle_join_game(const vector<string>& parts, unordered_map<uint32_t
 
     GameState& current_game = active_games[current_game_id];
     string response = to_string(current_game_id) + "/" +
-                      to_string(assigned_player_id) + "/" +
+                      to_string(current_game.player_a_id) + "/" +
+                      to_string(current_game.player_b_id) + "/" +
                       to_string(current_game.status) + "/" +
                       to_string(current_game.max_pawn) + "/" +
                       serialize_pawn_row(current_game);
