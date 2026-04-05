@@ -1,5 +1,3 @@
-#include <unistd.h>
-
 #include "common.h"
 
 #define MAX_PORT_NUMBER 65535
