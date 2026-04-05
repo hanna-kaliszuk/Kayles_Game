@@ -41,5 +41,7 @@ int main(int argc, char* argv[]) {
     AppConfig config;
 
     parse_arguments(argc, argv, config, "m:a:p:t:", false);
-
+    int socket_fd = create_client_socket(config);
+    write(socket_fd, config.message.c_str(), config.message.length());
+    close(socket_fd);
 }

@@ -1,13 +1,16 @@
 #include <cinttypes>
 #include <cstring>
+#include <functional>
 #include <arpa/inet.h>
 #include "common.h"
 #include "err.h"
 #include <sys/socket.h>
 #include <netdb.h>
 #include <vector>
+#include <unordered_map>
 
 #define BUFFER_SIZE 1000
+#define DELIMITER '/'
 
 struct GameState {
     uint32_t player_a_id;
@@ -33,7 +36,7 @@ static void initialize_pawn_row(const string& str_pawns, GameState& game) {
     }
 }
 
-static int create_sever_socket (const AppConfig& config) {
+static int create_sever_socket(const AppConfig& config) {
     int socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
 
     if (socket_fd < 0) {
@@ -56,9 +59,89 @@ static int create_sever_socket (const AppConfig& config) {
     return socket_fd;
 }
 
-static void run_server(const AppConfig& config) {
+using MessageHandler = function<void(
+    const vector<string>& parts,
+    unordered_map<uint32_t, GameState>& active_games,
+    const GameState& template_game,
+    int socket_fd,
+    const struct sockaddr_in& client_addr
+)>;
+
+static void handle_join_game(const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,
+    const GameState& template_game, int socket_fd, const struct sockaddr_in& client_addr) {
+    // sprawdzenie, czy jest wolne miejsce do dołączenia
+    // jest: dołączamy go tam
+    // nie ma: tworzymy nową grę ze statusem oczekującej
+    // wysłanie odp do klienta
+}
+
+static void handle_make_move_one(const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,
+    const GameState& template_game, int socket_fd, const struct sockaddr_in& client_addr) {
+    // sprawdzamy, czy zawiera poprawne wartości w polach
+    // czy jest poprawna wartość pola pawn, jak nie to ignorujemy
+    // sprawdzamy, czy jest tura gracza
+
+
+}
+
+static void handle_make_move_two(const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,
+    const GameState& template_game, int socket_fd, const struct sockaddr_in& client_addr) {
+    // sprawdzamy, czy zawiera poprawne wartości w polach
+    // czy jest poprawna wartość pola pawn, jak nie to ignorujemy
+    // sprawdzamy, czy jest tura gracza
+
+
+}
+
+static void handle_keep_alive(const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,
+    const GameState& template_game, int socket_fd, const struct sockaddr_in& client_addr) {
+
+
+}
+
+static void handle_give_up(const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,
+    const GameState& template_game, int socket_fd, const struct sockaddr_in& client_addr) {
+
+
+}
+
+static void handle_wrong_message(const vector<string>& parts, int socket_fd, const struct sockaddr_in& client_addr) {
+
+
+}
+
+static void decode_and_verify_message( const string& buffer, unordered_map<uint32_t, GameState>& active_games,
+    const GameState& template_game, int socket_fd, const struct sockaddr_in& client_addr) {
+    vector<string> parts = split_message(buffer, DELIMITER);
+
+    if (parts.empty()) {
+        handle_wrong_message(parts, socket_fd, client_addr);
+        return;
+    }
+
+    const int message_type = validate_and_convert_number(parts[0].c_str(), 0, 4);
+
+    static const unordered_map<int, MessageHandler> handlers = {
+        {0, handle_join_game},
+        {1, handle_make_move_one},
+        {2, handle_make_move_two},
+        {3, handle_keep_alive},
+        {4, handle_give_up}
+    };
+
+    auto it = handlers.find(message_type);
+    if (it != handlers.end()) {
+        it->second(parts, active_games, template_game, socket_fd, client_addr);
+    } else {
+        handle_wrong_message(parts, socket_fd, client_addr);
+    }
+}
+static void run_server(const AppConfig& config, const GameState& template_game) {
+    cout << "running server on port " << config.port << endl;
     int socket_fd = create_sever_socket(config);
     static char buffer[BUFFER_SIZE];
+
+    unordered_map<uint32_t, GameState> active_games;
 
     while (true) {
         struct sockaddr_in client_address;
@@ -73,12 +156,14 @@ static void run_server(const AppConfig& config) {
 
         buffer[received_length] = '\0';
 
+        decode_and_verify_message(buffer, active_games, template_game, socket_fd, client_address);
+
         char client_ip[INET_ADDRSTRLEN];
         inet_ntop(AF_INET, &client_address.sin_addr, client_ip, sizeof(client_ip));
         uint16_t client_port = ntohs(client_address.sin_port);
 
-        printf("Received %zd bytes from %s:%u: %s\n",
-               received_length, client_ip, client_port, buffer);
+        printf("received message from %s:%u: %s\n",
+              client_ip, client_port, buffer);
 
         const char* response = "seen.";
         sendto(socket_fd, response, strlen(response), 0,
@@ -88,12 +173,12 @@ static void run_server(const AppConfig& config) {
 
 int main(int argc, char* argv[]) {
     AppConfig config;
-    GameState new_game;
+    GameState template_game;
 
     parse_arguments(argc, argv, config, "r:a:p:t:", true);
-    initialize_pawn_row(config.pawn_row, new_game);
+    initialize_pawn_row(config.pawn_row, template_game);
 
-    run_server(config);
+    run_server(config, template_game);
 
     return 0;
 }

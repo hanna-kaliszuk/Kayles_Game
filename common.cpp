@@ -2,6 +2,7 @@
 #include "err.h"
 
 #include <cstdlib>
+#include <sstream>
 
 #define MAX_PORT_NUMBER 65535
 #define MIN_TIMEOUT_VALUE 1
@@ -114,4 +115,17 @@ void parse_arguments(int argc, char* argv[], AppConfig& config, const char* allo
     if (flags_str.find('r') != string::npos && !has_pawns)   fatal("missing required argument -r");
     if (flags_str.find('m') != string::npos && !has_message) fatal("missing required argument -m");
 
+}
+
+vector<string> split_message(const string& message, char delimiter) {
+    vector<string> result;
+    string s;
+
+    stringstream tokenStream(message);
+
+    while (getline(tokenStream, s, delimiter)) {
+        result.push_back(s);
+    }
+
+    return result;
 }
