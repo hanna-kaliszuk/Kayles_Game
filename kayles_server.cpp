@@ -12,6 +12,13 @@
 #define BUFFER_SIZE 1000
 #define DELIMITER '/'
 
+constexpr uint8_t WAITING_FOR_OPPONENT = 0;
+constexpr uint8_t TURN_A = 1;
+constexpr uint8_t TURN_B = 2;
+
+static uint32_t next_game_id = 1000;
+static uint32_t next_player_id = 100;
+
 struct GameState {
     uint32_t player_a_id;
     uint32_t player_b_id;
@@ -19,6 +26,14 @@ struct GameState {
     uint8_t max_pawn;
     vector<uint8_t> pawn_row;
 };
+
+using MessageHandler = function<void(
+    const vector<string>& parts,
+    unordered_map<uint32_t, GameState>& active_games,
+    const GameState& template_game,
+    int socket_fd,
+    const struct sockaddr_in& client_addr
+)>;
 
 static void initialize_pawn_row(const string& str_pawns, GameState& game) {
     game.max_pawn = static_cast<uint8_t>(str_pawns.length() - 1);
@@ -34,6 +49,18 @@ static void initialize_pawn_row(const string& str_pawns, GameState& game) {
             game.pawn_row[byte_index] |= (1 << bit_index);
         }
     }
+}
+
+static string serialize_pawn_row(const GameState& game) {
+    string result = "";
+
+    for (int i = 0; i <= game.max_pawn; i++) {
+        size_t byte_index = i / 8;
+        size_t bit_index = 7 - (i % 8);
+        bool is_set = (game.pawn_row[byte_index] & (1 << bit_index)) != 0;
+        result += (is_set ? "1" : "0");
+    }
+    return result;
 }
 
 static int create_sever_socket(const AppConfig& config) {
@@ -59,20 +86,57 @@ static int create_sever_socket(const AppConfig& config) {
     return socket_fd;
 }
 
-using MessageHandler = function<void(
-    const vector<string>& parts,
-    unordered_map<uint32_t, GameState>& active_games,
-    const GameState& template_game,
-    int socket_fd,
-    const struct sockaddr_in& client_addr
-)>;
+static void send_response_to_client(int socket_fd, const struct sockaddr_in& client_addr, const string& message) {
+    ssize_t sent_length = sendto(socket_fd, message.c_str(), message.length(), 0,
+        reinterpret_cast<const struct sockaddr*>(&client_addr), sizeof(client_addr));
+
+    if (sent_length < 0) {
+        syserr("failed to send response to client");
+    } else {
+        cout << "response sent: " << message << endl;
+    }
+}
 
 static void handle_join_game(const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,
     const GameState& template_game, int socket_fd, const struct sockaddr_in& client_addr) {
     // sprawdzenie, czy jest wolne miejsce do dołączenia
-    // jest: dołączamy go tam
-    // nie ma: tworzymy nową grę ze statusem oczekującej
-    // wysłanie odp do klienta
+    uint32_t current_game_id = 0;
+    uint32_t assigned_player_id = next_player_id++;
+    bool found = false;
+
+    for (auto& game : active_games) {
+        if (game.second.status == WAITING_FOR_OPPONENT) {
+            game.second.player_b_id = assigned_player_id;
+            game.second.status = TURN_B;
+
+            current_game_id = game.first;
+            found = true;
+
+            cout << "player no " << assigned_player_id << " joined game no " << current_game_id << endl;
+            break;
+        }
+    }
+
+    if (!found) {
+        current_game_id = next_game_id++;
+
+        GameState new_game = template_game;
+        new_game.player_a_id = assigned_player_id;
+        new_game.player_b_id = WAITING_FOR_OPPONENT;
+        new_game.status = WAITING_FOR_OPPONENT;
+
+        active_games[current_game_id] = new_game;
+        cout << "game no " << current_game_id << " created. player no " << assigned_player_id << " joined it. " << endl;
+    }
+
+    GameState& current_game = active_games[current_game_id];
+    string response = to_string(current_game_id) + "/" +
+                      to_string(assigned_player_id) + "/" +
+                      to_string(current_game.status) + "/" +
+                      to_string(current_game.max_pawn) + "/" +
+                      serialize_pawn_row(current_game);
+
+    send_response_to_client(socket_fd, client_addr, response);
 }
 
 static void handle_make_move_one(const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,
@@ -136,6 +200,7 @@ static void decode_and_verify_message( const string& buffer, unordered_map<uint3
         handle_wrong_message(parts, socket_fd, client_addr);
     }
 }
+
 static void run_server(const AppConfig& config, const GameState& template_game) {
     cout << "running server on port " << config.port << endl;
     int socket_fd = create_sever_socket(config);
@@ -164,10 +229,6 @@ static void run_server(const AppConfig& config, const GameState& template_game) 
 
         printf("received message from %s:%u: %s\n",
               client_ip, client_port, buffer);
-
-        const char* response = "seen.";
-        sendto(socket_fd, response, strlen(response), 0,
-            reinterpret_cast<struct sockaddr*>(&client_address), client_address_length);
     }
 }
 

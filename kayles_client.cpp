@@ -43,5 +43,22 @@ int main(int argc, char* argv[]) {
     parse_arguments(argc, argv, config, "m:a:p:t:", false);
     int socket_fd = create_client_socket(config);
     write(socket_fd, config.message.c_str(), config.message.length());
+
+    char buffer[1000];
+    ssize_t received_bytes = read(socket_fd, buffer, sizeof(buffer) - 1);
+
+    if (received_bytes < 0) {
+        // Sprawdzamy, czy powodem błędu był upływ czasu (timeout)
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            fatal("Brak odpowiedzi! Serwer milczał przez %d sekund (timeout).", config.timeout);
+        } else {
+            // Jakiś inny błąd sieciowy
+            syserr("read failed");
+        }
+    }
+
+    buffer[received_bytes] = '\0';
+    printf("%s\n", buffer);
     close(socket_fd);
+    return 0;
 }
