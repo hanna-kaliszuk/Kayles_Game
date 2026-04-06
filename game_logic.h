@@ -23,6 +23,7 @@ struct GameState {
 };
 
 using MessageHandler = function<void(
+    const string& buffer,
     const vector<string>& parts,
     unordered_map<uint32_t, GameState>& active_games,
     const GameState& template_game,

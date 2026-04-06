@@ -16,7 +16,6 @@
 #define ERROR_STATUS 255
 
 static uint32_t next_game_id = 1000;
-static uint32_t next_player_id = 100;
 
 static int create_sever_socket(const AppConfig& config) {
     int socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -50,10 +49,48 @@ static void send_response_to_client(int socket_fd, const struct sockaddr_in& cli
     }
 }
 
-static void handle_join_game(const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,
+static void handle_wrong_message(const string& buffer, uint8_t error_index, int socket_fd,
+    const struct sockaddr_in& client_addr) {
+
+    string response (14, '\0'); // 12 message + 1 status + 1 error_index
+
+    size_t copy_len = min(buffer.length(), static_cast<size_t>(MESSAGE_BYTES));
+    for (size_t i = 0; i < copy_len; i++) {
+        response[i] = buffer[i];
+    }
+
+    response[12] = static_cast<char>(ERROR_STATUS);
+    response[13] = static_cast<char>(error_index);
+
+    send_response_to_client(socket_fd, client_addr, response);
+}
+
+static void handle_join_game(const string& buffer, const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,
     const GameState& template_game, int socket_fd, const struct sockaddr_in& client_addr) {
+
+    if (parts.size() != 2) {
+        uint8_t err_idx = 0;
+
+        if (parts.size() < 2) {
+            err_idx = static_cast<uint8_t>(buffer.length());
+        } else {
+            err_idx = static_cast<uint8_t>(parts[0].length() + 1 + parts[1].length());
+        }
+
+        handle_wrong_message(buffer, err_idx, socket_fd, client_addr);
+        return;
+    }
+
+
+    uint32_t assigned_player_id;
+    try {
+        assigned_player_id = static_cast<uint32_t>(stoul(parts[1]));
+    } catch (...){ // parse error
+        handle_wrong_message(buffer, 2, socket_fd, client_addr);
+        return;
+    }
+
     uint32_t current_game_id = 0;
-    uint32_t assigned_player_id = next_player_id++;
     bool found = false;
 
     for (auto& game : active_games) {
@@ -92,7 +129,7 @@ static void handle_join_game(const vector<string>& parts, unordered_map<uint32_t
     send_response_to_client(socket_fd, client_addr, response);
 }
 
-static void handle_make_move_one(const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,
+static void handle_make_move_one(const string& buffer, const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,
     const GameState& template_game, int socket_fd, const struct sockaddr_in& client_addr) {
     // sprawdzamy, czy zawiera poprawne wartości w polach
     // czy jest poprawna wartość pola pawn, jak nie to ignorujemy
@@ -101,7 +138,7 @@ static void handle_make_move_one(const vector<string>& parts, unordered_map<uint
 
 }
 
-static void handle_make_move_two(const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,
+static void handle_make_move_two(const string& buffer, const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,
     const GameState& template_game, int socket_fd, const struct sockaddr_in& client_addr) {
     // sprawdzamy, czy zawiera poprawne wartości w polach
     // czy jest poprawna wartość pola pawn, jak nie to ignorujemy
@@ -110,32 +147,16 @@ static void handle_make_move_two(const vector<string>& parts, unordered_map<uint
 
 }
 
-static void handle_keep_alive(const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,
+static void handle_keep_alive(const string& buffer, const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,
     const GameState& template_game, int socket_fd, const struct sockaddr_in& client_addr) {
 
 
 }
 
-static void handle_give_up(const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,
+static void handle_give_up(const string& buffer, const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,
     const GameState& template_game, int socket_fd, const struct sockaddr_in& client_addr) {
 
 
-}
-
-static void handle_wrong_message(const string& buffer, uint8_t error_index, int socket_fd,
-    const struct sockaddr_in& client_addr) {
-
-    string response (14, '\0'); // 12 message + 1 status + 1 error_index
-
-    size_t copy_len = min(buffer.length(), static_cast<size_t>(MESSAGE_BYTES));
-    for (size_t i = 0; i < copy_len; i++) {
-        response[i] = buffer[i];
-    }
-
-    response[12] = static_cast<char>(ERROR_STATUS);
-    response[13] = static_cast<char>(error_index);
-
-    send_response_to_client(socket_fd, client_addr, response);
 }
 
 static void decode_and_verify_message( const string& buffer, unordered_map<uint32_t, GameState>& active_games,
@@ -159,7 +180,7 @@ static void decode_and_verify_message( const string& buffer, unordered_map<uint3
 
     auto it = handlers.find(message_type);
     if (it != handlers.end()) {
-        it->second(parts, active_games, template_game, socket_fd, client_addr);
+        it->second(buffer, parts, active_games, template_game, socket_fd, client_addr);
     } else {
         handle_wrong_message(buffer, 0, socket_fd, client_addr);
     }
