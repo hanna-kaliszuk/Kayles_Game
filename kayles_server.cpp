@@ -1,6 +1,6 @@
 #include <cinttypes>
 #include <cstring>
-
+#include <algorithm>
 #include <arpa/inet.h>
 #include "common.h"
 #include "err.h"
@@ -12,6 +12,8 @@
 
 #define BUFFER_SIZE 1000
 #define DELIMITER '/'
+#define MESSAGE_BYTES 12
+#define ERROR_STATUS 255
 
 static uint32_t next_game_id = 1000;
 static uint32_t next_player_id = 100;
@@ -45,14 +47,11 @@ static void send_response_to_client(int socket_fd, const struct sockaddr_in& cli
 
     if (sent_length < 0) {
         syserr("failed to send response to client");
-    } else {
-        cout << "response sent: " << message << endl;
     }
 }
 
 static void handle_join_game(const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,
     const GameState& template_game, int socket_fd, const struct sockaddr_in& client_addr) {
-    // sprawdzenie, czy jest wolne miejsce do dołączenia
     uint32_t current_game_id = 0;
     uint32_t assigned_player_id = next_player_id++;
     bool found = false;
@@ -123,9 +122,20 @@ static void handle_give_up(const vector<string>& parts, unordered_map<uint32_t, 
 
 }
 
-static void handle_wrong_message(const vector<string>& parts, int socket_fd, const struct sockaddr_in& client_addr) {
+static void handle_wrong_message(const string& buffer, uint8_t error_index, int socket_fd,
+    const struct sockaddr_in& client_addr) {
 
+    string response (14, '\0'); // 12 message + 1 status + 1 error_index
 
+    size_t copy_len = min(buffer.length(), static_cast<size_t>(MESSAGE_BYTES));
+    for (size_t i = 0; i < copy_len; i++) {
+        response[i] = buffer[i];
+    }
+
+    response[12] = static_cast<char>(ERROR_STATUS);
+    response[13] = static_cast<char>(error_index);
+
+    send_response_to_client(socket_fd, client_addr, response);
 }
 
 static void decode_and_verify_message( const string& buffer, unordered_map<uint32_t, GameState>& active_games,
@@ -133,7 +143,7 @@ static void decode_and_verify_message( const string& buffer, unordered_map<uint3
     vector<string> parts = split_message(buffer, DELIMITER);
 
     if (parts.empty()) {
-        handle_wrong_message(parts, socket_fd, client_addr);
+        handle_wrong_message(buffer, 0, socket_fd, client_addr);
         return;
     }
 
@@ -151,7 +161,7 @@ static void decode_and_verify_message( const string& buffer, unordered_map<uint3
     if (it != handlers.end()) {
         it->second(parts, active_games, template_game, socket_fd, client_addr);
     } else {
-        handle_wrong_message(parts, socket_fd, client_addr);
+        handle_wrong_message(buffer, 0, socket_fd, client_addr);
     }
 }
 
