@@ -10,7 +10,7 @@
 #include <vector>
 #include <unordered_map>
 
-#define BUFFER_SIZE 1000
+
 #define DELIMITER '/'
 #define MESSAGE_BYTES 12
 #define ERROR_STATUS 255
@@ -65,27 +65,45 @@ static void handle_wrong_message(const string& buffer, uint8_t error_index, int 
     send_response_to_client(socket_fd, client_addr, response);
 }
 
+static int validate_message_format(const string& buffer, const vector<string>& parts, size_t expected_parts_count) {
+    if (parts.size() != expected_parts_count) {
+        uint8_t err_idx = 0;
+
+        if (parts.size() < expected_parts_count) {
+            return static_cast<uint8_t>(buffer.length());
+        } else {
+            size_t length_sum = 0;
+            for (size_t i = 0; i < expected_parts_count; i++) {
+                length_sum += parts[i].length();
+            }
+
+            length_sum += (expected_parts_count - 1);
+            return static_cast<uint8_t>(length_sum);
+        }
+    }
+
+    size_t current_idx = 0;
+
+    for (size_t p = 1; p < expected_parts_count; p++) {
+        for (size_t i = 0; i < parts[p].length(); i++) {
+            if (!isdigit(parts[p][i])) {
+                return static_cast<int>(current_idx + i);
+            }
+        }
+        current_idx += parts[p].length() + 1;
+    }
+
+    return -1; // brak błędu
+}
+
 static void handle_join_game(const string& buffer, const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,
     const GameState& template_game, int socket_fd, const struct sockaddr_in& client_addr) {
 
-    if (parts.size() != 2) {
-        uint8_t err_idx = 0;
+    int err_idx = validate_message_format(buffer, parts, 2);
 
-        if (parts.size() < 2) {
-            err_idx = static_cast<uint8_t>(buffer.length());
-        } else {
-            err_idx = static_cast<uint8_t>(parts[0].length() + 1 + parts[1].length());
-        }
-
-        handle_wrong_message(buffer, err_idx, socket_fd, client_addr);
+    if (err_idx != -1) {
+        handle_wrong_message(buffer, static_cast<uint8_t>(err_idx), socket_fd, client_addr);
         return;
-    }
-
-    for (size_t i = 0; i < parts[1].length(); i++) {
-        if (!isdigit(parts[1][i])) {
-            handle_wrong_message(buffer, static_cast<uint8_t>(parts[0].length() + 1 + i), socket_fd, client_addr);
-            return;
-        }
     }
 
     uint32_t assigned_player_id;
@@ -137,11 +155,67 @@ static void handle_join_game(const string& buffer, const vector<string>& parts, 
 
 static void handle_make_move_one(const string& buffer, const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,
     const GameState& template_game, int socket_fd, const struct sockaddr_in& client_addr) {
-    // sprawdzamy, czy zawiera poprawne wartości w polach
-    // czy jest poprawna wartość pola pawn, jak nie to ignorujemy
-    // sprawdzamy, czy jest tura gracza
+    // sprawdzamy, czy wiadomość, która przyszła jest na pewno ok:
+    int err_idx = validate_message_format(buffer, parts, 4);
+    if (err_idx != -1) {
+        handle_wrong_message(buffer, static_cast<uint8_t>(err_idx), socket_fd, client_addr);
+        return;
+    }
 
 
+    uint32_t game_id, player_id;
+    uint32_t pawn_idx;
+
+    try {
+        player_id = static_cast<uint32_t>(stoul(parts[1]));
+        game_id = static_cast<uint32_t>(stoul(parts[2]));
+        pawn_idx = static_cast<uint32_t>(stoul(parts[3]));
+    } catch (...) {
+        handle_wrong_message(buffer, static_cast<uint8_t>(parts[0].length() + 1), socket_fd, client_addr);
+        return;
+    }
+
+    // sprawdzamy, czy gra o podanym ID istnieje
+    auto it = active_games.find(game_id);
+    if (it == active_games.end()) {
+        auto error_index = static_cast<uint8_t>(parts[0].length() + parts[1].length() + 2);
+        handle_wrong_message(buffer, error_index, socket_fd, client_addr);
+        return;
+    }
+
+    GameState& game = it->second;
+
+    // sprawdzamy, czy gracz o podanym ID bierze udział w danej grze
+    if (game.player_a_id != player_id && game.player_b_id != player_id) {
+        auto error_index = static_cast<uint8_t>(parts[0].length() + parts[1].length() + parts[2].length() + 3);
+        handle_wrong_message(buffer, error_index, socket_fd, client_addr);
+        return;
+    }
+
+    // sprawdzamy, czy jest teraz pora na ruch tego gracza
+    if (game.player_a_id == player_id && game.status != TURN_A) return;
+    if (game.player_b_id == player_id && game.status != TURN_B) return;
+
+    // sprawdzamy, czy ruch jest w porządku
+    //      - czy nie ma przekroczenia max_pawn
+    if (pawn_idx > game.max_pawn) return;
+    //      - czy zbija faktycznie stojące pionki
+    size_t byte_idx = pawn_idx / 8;
+    size_t bit_idx =  7 - (pawn_idx % 8);
+
+    if ((game.pawn_row[byte_idx] & (1 << bit_idx)) == 0) return;
+
+    // jeżeli wszystko jest ok, zmieniamy stan gry, odsyłamy graczowi wiadomość
+    game.pawn_row[byte_idx] &= ~(1 << bit_idx);
+    game.status = (game.status == TURN_A) ? TURN_B : TURN_A;
+    string response = to_string(game_id) + "/" +
+                      to_string(game.player_a_id) + "/" +
+                      to_string(game.player_b_id) + "/" +
+                      to_string(game.status) + "/" +
+                      to_string(game.max_pawn) + "/" +
+                      serialize_pawn_row(game);
+
+    send_response_to_client(socket_fd, client_addr, response);
 }
 
 static void handle_make_move_two(const string& buffer, const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,

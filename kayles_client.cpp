@@ -6,6 +6,8 @@
 #include <unistd.h>
 #include <cinttypes>
 #include <cstdio>
+#include <netdb.h>
+
 #include "common.h"
 #include "err.h"
 
@@ -37,6 +39,38 @@ static int create_client_socket(const AppConfig& config) {
     return socket_fd;
 }
 
+static void receive_and_display_message(int socket_fd, int timeout) {
+    char buffer[BUFFER_SIZE];
+    ssize_t received_bytes = read(socket_fd, buffer, sizeof(buffer) - 1);
+
+    if (received_bytes < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            return;
+        } else {
+            syserr("read failed");
+        }
+    }
+
+    if (received_bytes == 14 && static_cast<unsigned char>(buffer[12]) == 255) {
+        printf("----------------------------------------\n");
+        printf("[SERVER -> CLIENT] received MSG_WRONG_MSG\n");
+
+        for(int i = 0; i < 12 && buffer[i] != '\0'; i++) {
+            printf("%c", buffer[i]);
+        }
+
+        printf("'\nstatus: %d\n", static_cast<unsigned char>(buffer[12]));
+        printf("error index: %d\n", static_cast<unsigned char>(buffer[13]));
+        printf("----------------------------------------\n\n");
+    } else {
+        buffer[received_bytes] = '\0';
+        printf("----------------------------------------\n");
+        printf("[SERVER -> CLIENT] received MSG_GAME_STATE:\n");
+        printf("%s\n", buffer);
+        printf("----------------------------------------\n\n");
+    }
+}
+
 int main(int argc, char* argv[]) {
     AppConfig config;
 
@@ -44,21 +78,8 @@ int main(int argc, char* argv[]) {
     int socket_fd = create_client_socket(config);
     write(socket_fd, config.message.c_str(), config.message.length());
 
-    char buffer[1000];
-    ssize_t received_bytes = read(socket_fd, buffer, sizeof(buffer) - 1);
-
-    if (received_bytes < 0) {
-        // Sprawdzamy, czy powodem błędu był upływ czasu (timeout)
-        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            fatal("Brak odpowiedzi! Serwer milczał przez %d sekund (timeout).", config.timeout);
-        } else {
-            // Jakiś inny błąd sieciowy
-            syserr("read failed");
-        }
-    }
-
-    buffer[received_bytes] = '\0';
-    printf("%s\n", buffer);
+    receive_and_display_message(socket_fd, config.timeout);
     close(socket_fd);
+
     return 0;
 }

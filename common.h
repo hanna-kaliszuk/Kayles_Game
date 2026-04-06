@@ -7,6 +7,7 @@
 #include <vector>
 
 #define INVALID_VALUE (-1)
+#define BUFFER_SIZE 1000
 
 
 using namespace std;
