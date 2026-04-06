@@ -81,6 +81,12 @@ static void handle_join_game(const string& buffer, const vector<string>& parts, 
         return;
     }
 
+    for (size_t i = 0; i < parts[1].length(); i++) {
+        if (!isdigit(parts[1][i])) {
+            handle_wrong_message(buffer, static_cast<uint8_t>(parts[0].length() + 1 + i), socket_fd, client_addr);
+            return;
+        }
+    }
 
     uint32_t assigned_player_id;
     try {
