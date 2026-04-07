@@ -162,7 +162,6 @@ static void handle_make_move_one(const string& buffer, const vector<string>& par
         return;
     }
 
-
     uint32_t game_id, player_id;
     uint32_t pawn_idx;
 
@@ -220,11 +219,72 @@ static void handle_make_move_one(const string& buffer, const vector<string>& par
 
 static void handle_make_move_two(const string& buffer, const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,
     const GameState& template_game, int socket_fd, const struct sockaddr_in& client_addr) {
-    // sprawdzamy, czy zawiera poprawne wartości w polach
-    // czy jest poprawna wartość pola pawn, jak nie to ignorujemy
-    // sprawdzamy, czy jest tura gracza
+    // sprawdzamy, czy wiadomość, która przyszła jest na pewno ok:
+    int err_idx = validate_message_format(buffer, parts, 4);
+    if (err_idx != -1) {
+        handle_wrong_message(buffer, static_cast<uint8_t>(err_idx), socket_fd, client_addr);
+        return;
+    }
 
+    uint32_t game_id, player_id;
+    uint32_t first_pawn_idx;
 
+    try {
+        player_id = static_cast<uint32_t>(stoul(parts[1]));
+        game_id = static_cast<uint32_t>(stoul(parts[2]));
+        first_pawn_idx = static_cast<uint32_t>(stoul(parts[3]));
+    } catch (...) {
+        handle_wrong_message(buffer, static_cast<uint8_t>(parts[0].length() + 1), socket_fd, client_addr);
+        return;
+    }
+
+    uint32_t second_pawn_idx = first_pawn_idx + 1;
+
+    // sprawdzamy, czy gra o podanym ID istnieje
+    auto it = active_games.find(game_id);
+    if (it == active_games.end()) {
+        auto error_index = static_cast<uint8_t>(parts[0].length() + parts[1].length() + 2);
+        handle_wrong_message(buffer, error_index, socket_fd, client_addr);
+        return;
+    }
+
+    GameState& game = it->second;
+
+    // sprawdzamy, czy gracz o podanym ID bierze udział w danej grze
+    if (game.player_a_id != player_id && game.player_b_id != player_id) {
+        auto error_index = static_cast<uint8_t>(parts[0].length() + parts[1].length() + parts[2].length() + 3);
+        handle_wrong_message(buffer, error_index, socket_fd, client_addr);
+        return;
+    }
+
+    // sprawdzamy, czy jest teraz pora na ruch tego gracza
+    if (game.player_a_id == player_id && game.status != TURN_A) return;
+    if (game.player_b_id == player_id && game.status != TURN_B) return;
+
+    // sprawdzamy, czy ruch jest w porządku
+    //      - czy nie ma przekroczenia max_pawn
+    if (first_pawn_idx > game.max_pawn || second_pawn_idx > game.max_pawn) return;
+    //      - czy zbija faktycznie stojące pionki
+    size_t first_byte_idx = first_pawn_idx / 8;
+    size_t first_bit_idx =  7 - (first_pawn_idx % 8);
+    size_t second_byte_idx = second_pawn_idx / 8;
+    size_t second_bit_idx =  7 - (second_pawn_idx % 8);
+
+    if ((game.pawn_row[first_byte_idx] & (1 << first_bit_idx)) == 0) return;
+    if ((game.pawn_row[second_byte_idx] & (1 << second_bit_idx)) == 0) return;
+
+    // jeżeli wszystko jest ok, zmieniamy stan gry, odsyłamy graczowi wiadomość
+    game.pawn_row[first_byte_idx] &= ~(1 << first_bit_idx);
+    game.pawn_row[second_byte_idx] &= ~(1 << second_bit_idx);
+    game.status = (game.status == TURN_A) ? TURN_B : TURN_A;
+    string response = to_string(game_id) + "/" +
+                      to_string(game.player_a_id) + "/" +
+                      to_string(game.player_b_id) + "/" +
+                      to_string(game.status) + "/" +
+                      to_string(game.max_pawn) + "/" +
+                      serialize_pawn_row(game);
+
+    send_response_to_client(socket_fd, client_addr, response);
 }
 
 static void handle_keep_alive(const string& buffer, const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,
