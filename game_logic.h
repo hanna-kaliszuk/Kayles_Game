@@ -35,4 +35,10 @@ void initialize_pawn_row(const string& str_pawns, GameState& game);
 
 string serialize_pawn_row(const GameState& game);
 
+void knock_pawn_down(GameState& game_state, uint32_t pawn_idx);
+
+bool is_pawn_standing(GameState& game_state, const uint32_t pawn_idx);
+
+bool is_legal_move(GameState& game_state, const uint32_t pawn_idx);
+
 #endif //KAYLES_GAME_LOGIC_H

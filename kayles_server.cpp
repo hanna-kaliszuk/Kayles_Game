@@ -129,30 +129,6 @@ static int validate_message_format(const string& buffer, const vector<string>& p
     return NO_ERROR; // brak błędu
 }
 
-static void knock_pawn_down(GameState& game_state, uint32_t pawn_idx) {
-    size_t byte_idx = pawn_idx / 8;
-    size_t bit_idx =  7 - (pawn_idx % 8);
-
-    game_state.pawn_row[byte_idx] &= ~(1 << bit_idx);
-}
-
-static bool is_pawn_standing(GameState& game_state, const uint32_t pawn_idx) {
-    if (pawn_idx > game_state.max_pawn) return false;
-
-    size_t byte_idx = pawn_idx / 8;
-    size_t bit_idx =  7 - (pawn_idx % 8);
-
-    if ((game_state.pawn_row[byte_idx] & (1 << bit_idx)) == 0) return false;
-    return true;
-}
-
-static bool is_legal_move(GameState& game_state, const uint32_t pawn_idx) {
-    if (!is_pawn_standing(game_state, pawn_idx)) return false;
-
-    knock_pawn_down(game_state, pawn_idx);
-    return true;
-}
-
 static void handle_join_game(const string& buffer, const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,
     const GameState& template_game, int socket_fd, const struct sockaddr_in& client_addr) {
 
