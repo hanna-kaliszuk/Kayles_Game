@@ -129,6 +129,22 @@ static int validate_message_format(const string& buffer, const vector<string>& p
     return NO_ERROR; // brak błędu
 }
 
+static void knock_pawn_down(GameState& game_state, uint32_t byte_idx, uint32_t bit_idx) {
+    game_state.pawn_row[byte_idx] &= ~(1 << bit_idx);
+}
+
+static bool is_legal_move(GameState& game_state, const uint32_t pawn_idx) {
+    if (pawn_idx > game_state.max_pawn) return false;
+
+    size_t byte_idx = pawn_idx / 8;
+    size_t bit_idx =  7 - (pawn_idx % 8);
+
+    if ((game_state.pawn_row[byte_idx] & (1 << bit_idx)) == 0) return false;
+
+    knock_pawn_down(game_state, byte_idx, bit_idx);
+    return true;
+}
+
 static void handle_join_game(const string& buffer, const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,
     const GameState& template_game, int socket_fd, const struct sockaddr_in& client_addr) {
 
@@ -210,17 +226,11 @@ static void handle_make_move_one(const string& buffer, const vector<string>& par
     if (game->player_a_id == player_id && game->status != TURN_A) return;
     if (game->player_b_id == player_id && game->status != TURN_B) return;
 
-    // sprawdzamy, czy ruch jest w porządku
-    //      - czy nie ma przekroczenia max_pawn
-    if (pawn_idx > game->max_pawn) return;
-    //      - czy zbija faktycznie stojące pionki
-    size_t byte_idx = pawn_idx / 8;
-    size_t bit_idx =  7 - (pawn_idx % 8);
+    if (!is_legal_move(*game, pawn_idx)) {
+        return;
+    }
 
-    if ((game->pawn_row[byte_idx] & (1 << bit_idx)) == 0) return;
-
-    // jeżeli wszystko jest ok, zmieniamy stan gry, odsyłamy graczowi wiadomość
-    game->pawn_row[byte_idx] &= ~(1 << bit_idx);
+    // jeżeli wszystko jest ok odsyłamy graczowi wiadomość
     game->status = (game->status == TURN_A) ? TURN_B : TURN_A;
 
     send_game_state(*game, game_id, socket_fd, client_addr);
