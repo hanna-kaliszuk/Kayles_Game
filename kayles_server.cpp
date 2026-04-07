@@ -14,6 +14,9 @@
 #define DELIMITER '/'
 #define MESSAGE_BYTES 12
 #define ERROR_STATUS 255
+#define JOIN_LEN 2
+#define MOVE_LEN 4
+#define NO_ERROR (-1)
 
 static uint32_t next_game_id = 1000;
 
@@ -47,6 +50,17 @@ static void send_response_to_client(int socket_fd, const struct sockaddr_in& cli
     if (sent_length < 0) {
         syserr("failed to send response to client");
     }
+}
+
+static void send_game_state(const GameState& game_state, uint32_t game_id, int socket_fd, const struct sockaddr_in& client_addr) {
+    string response = to_string(game_id) + "/" +
+                      to_string(game_state.player_a_id) + "/" +
+                      to_string(game_state.player_b_id) + "/" +
+                      to_string(game_state.status) + "/" +
+                      to_string(game_state.max_pawn) + "/" +
+                      serialize_pawn_row(game_state);
+
+    send_response_to_client(socket_fd, client_addr, response);
 }
 
 static void handle_wrong_message(const string& buffer, uint8_t error_index, int socket_fd,
@@ -93,15 +107,15 @@ static int validate_message_format(const string& buffer, const vector<string>& p
         current_idx += parts[p].length() + 1;
     }
 
-    return -1; // brak błędu
+    return NO_ERROR; // brak błędu
 }
 
 static void handle_join_game(const string& buffer, const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,
     const GameState& template_game, int socket_fd, const struct sockaddr_in& client_addr) {
 
-    int err_idx = validate_message_format(buffer, parts, 2);
+    int err_idx = validate_message_format(buffer, parts, JOIN_LEN);
 
-    if (err_idx != -1) {
+    if (err_idx != NO_ERROR) {
         handle_wrong_message(buffer, static_cast<uint8_t>(err_idx), socket_fd, client_addr);
         return;
     }
@@ -143,21 +157,14 @@ static void handle_join_game(const string& buffer, const vector<string>& parts, 
     }
 
     GameState& current_game = active_games[current_game_id];
-    string response = to_string(current_game_id) + "/" +
-                      to_string(current_game.player_a_id) + "/" +
-                      to_string(current_game.player_b_id) + "/" +
-                      to_string(current_game.status) + "/" +
-                      to_string(current_game.max_pawn) + "/" +
-                      serialize_pawn_row(current_game);
-
-    send_response_to_client(socket_fd, client_addr, response);
+    send_game_state(current_game, current_game_id, socket_fd, client_addr);
 }
 
 static void handle_make_move_one(const string& buffer, const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,
     const GameState& template_game, int socket_fd, const struct sockaddr_in& client_addr) {
     // sprawdzamy, czy wiadomość, która przyszła jest na pewno ok:
-    int err_idx = validate_message_format(buffer, parts, 4);
-    if (err_idx != -1) {
+    int err_idx = validate_message_format(buffer, parts, MOVE_LEN);
+    if (err_idx != NO_ERROR) {
         handle_wrong_message(buffer, static_cast<uint8_t>(err_idx), socket_fd, client_addr);
         return;
     }
@@ -207,20 +214,14 @@ static void handle_make_move_one(const string& buffer, const vector<string>& par
     // jeżeli wszystko jest ok, zmieniamy stan gry, odsyłamy graczowi wiadomość
     game.pawn_row[byte_idx] &= ~(1 << bit_idx);
     game.status = (game.status == TURN_A) ? TURN_B : TURN_A;
-    string response = to_string(game_id) + "/" +
-                      to_string(game.player_a_id) + "/" +
-                      to_string(game.player_b_id) + "/" +
-                      to_string(game.status) + "/" +
-                      to_string(game.max_pawn) + "/" +
-                      serialize_pawn_row(game);
 
-    send_response_to_client(socket_fd, client_addr, response);
+    send_game_state(game, game_id, socket_fd, client_addr);
 }
 
 static void handle_make_move_two(const string& buffer, const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,
     const GameState& template_game, int socket_fd, const struct sockaddr_in& client_addr) {
     // sprawdzamy, czy wiadomość, która przyszła jest na pewno ok:
-    int err_idx = validate_message_format(buffer, parts, 4);
+    int err_idx = validate_message_format(buffer, parts, MOVE_LEN);
     if (err_idx != -1) {
         handle_wrong_message(buffer, static_cast<uint8_t>(err_idx), socket_fd, client_addr);
         return;
@@ -277,14 +278,8 @@ static void handle_make_move_two(const string& buffer, const vector<string>& par
     game.pawn_row[first_byte_idx] &= ~(1 << first_bit_idx);
     game.pawn_row[second_byte_idx] &= ~(1 << second_bit_idx);
     game.status = (game.status == TURN_A) ? TURN_B : TURN_A;
-    string response = to_string(game_id) + "/" +
-                      to_string(game.player_a_id) + "/" +
-                      to_string(game.player_b_id) + "/" +
-                      to_string(game.status) + "/" +
-                      to_string(game.max_pawn) + "/" +
-                      serialize_pawn_row(game);
 
-    send_response_to_client(socket_fd, client_addr, response);
+    send_game_state(game, game_id, socket_fd, client_addr);
 }
 
 static void handle_keep_alive(const string& buffer, const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,
