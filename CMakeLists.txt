@@ -11,4 +11,5 @@ add_executable(Kayles
         game_logic.h
         err.h
         err.cpp
-        game_logic.cpp)
+        game_logic.cpp
+        network_utils.h)

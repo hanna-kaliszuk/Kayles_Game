@@ -5,6 +5,7 @@
 #include "common.h"
 #include "err.h"
 #include "game_logic.h"
+#include "network_utils.h"
 #include <sys/socket.h>
 #include <netdb.h>
 #include <vector>
@@ -43,42 +44,6 @@ static int create_sever_socket(const AppConfig& config) {
     return socket_fd;
 }
 
-static void send_response_to_client(int socket_fd, const struct sockaddr_in& client_addr, const string& message) {
-    ssize_t sent_length = sendto(socket_fd, message.c_str(), message.length(), 0,
-        reinterpret_cast<const struct sockaddr*>(&client_addr), sizeof(client_addr));
-
-    if (sent_length < 0) {
-        syserr("failed to send response to client");
-    }
-}
-
-static void send_game_state(const GameState& game_state, uint32_t game_id, int socket_fd, const struct sockaddr_in& client_addr) {
-    string response = to_string(game_id) + "/" +
-                      to_string(game_state.player_a_id) + "/" +
-                      to_string(game_state.player_b_id) + "/" +
-                      to_string(game_state.status) + "/" +
-                      to_string(game_state.max_pawn) + "/" +
-                      serialize_pawn_row(game_state);
-
-    send_response_to_client(socket_fd, client_addr, response);
-}
-
-static void handle_wrong_message(const string& buffer, uint8_t error_index, int socket_fd,
-    const struct sockaddr_in& client_addr) {
-
-    string response (14, '\0'); // 12 message + 1 status + 1 error_index
-
-    size_t copy_len = min(buffer.length(), static_cast<size_t>(MESSAGE_BYTES));
-    for (size_t i = 0; i < copy_len; i++) {
-        response[i] = buffer[i];
-    }
-
-    response[12] = static_cast<char>(ERROR_STATUS);
-    response[13] = static_cast<char>(error_index);
-
-    send_response_to_client(socket_fd, client_addr, response);
-}
-
 static GameState* find_game_and_verify_players(uint32_t game_id, uint32_t player_id, const string& buffer, const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games, int socket_fd, const struct sockaddr_in& client_addr) {
     auto it = active_games.find(game_id);
     if (it == active_games.end()) {
@@ -96,37 +61,6 @@ static GameState* find_game_and_verify_players(uint32_t game_id, uint32_t player
     }
 
     return &game;
-}
-
-static int validate_message_format(const string& buffer, const vector<string>& parts, size_t expected_parts_count) {
-    if (parts.size() != expected_parts_count) {
-        uint8_t err_idx = 0;
-
-        if (parts.size() < expected_parts_count) {
-            return static_cast<uint8_t>(buffer.length());
-        } else {
-            size_t length_sum = 0;
-            for (size_t i = 0; i < expected_parts_count; i++) {
-                length_sum += parts[i].length();
-            }
-
-            length_sum += (expected_parts_count - 1);
-            return static_cast<uint8_t>(length_sum);
-        }
-    }
-
-    size_t current_idx = 0;
-
-    for (size_t p = 1; p < expected_parts_count; p++) {
-        for (size_t i = 0; i < parts[p].length(); i++) {
-            if (!isdigit(parts[p][i])) {
-                return static_cast<int>(current_idx + i);
-            }
-        }
-        current_idx += parts[p].length() + 1;
-    }
-
-    return NO_ERROR; // brak błędu
 }
 
 static void handle_join_game(const string& buffer, const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,
@@ -248,11 +182,6 @@ static void handle_make_move_two(const string& buffer, const vector<string>& par
     if (!game) {
         return;
     }
-
-    // sprawdzamy, czy jest teraz pora na ruch tego gracza
-    if (game->player_a_id == player_id && game->status != TURN_A) return;
-    if (game->player_b_id == player_id && game->status != TURN_B) return;
-
 
     // sprawdzamy, czy jest teraz pora na ruch tego gracza
     if (game->player_a_id == player_id && game->status != TURN_A) return;
