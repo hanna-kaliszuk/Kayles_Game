@@ -8,6 +8,8 @@
 constexpr uint8_t WAITING_FOR_OPPONENT = 0;
 constexpr uint8_t TURN_A = 1;
 constexpr uint8_t TURN_B = 2;
+constexpr uint8_t WIN_A = 3;
+constexpr uint8_t WIN_B = 4;
 
 struct GameState {
     uint32_t player_a_id;

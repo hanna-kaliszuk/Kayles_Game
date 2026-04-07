@@ -1,5 +1,3 @@
-#include <cinttypes>
-#include <cstring>
 #include <algorithm>
 #include <arpa/inet.h>
 #include "common.h"
@@ -13,12 +11,13 @@
 
 using namespace std;
 
-constexpr char DELIMITER = '/';
-constexpr int JOIN_LEN = 2;
-constexpr int  MOVE_LEN = 4;
-constexpr int  NO_ERROR = (-1);
+constexpr char  DELIMITER = '/';
+constexpr int   JOIN_LEN = 2;
+constexpr int   MOVE_LEN = 4;
+constexpr int   GIVE_UP_LEN = 3;
+constexpr int   NO_ERROR = (-1);
 
-static uint32_t next_game_id = 1000;
+static uint32_t next_game_id = 1;
 
 using MessageHandler = function<void(
     const string& buffer,
@@ -51,8 +50,6 @@ static int create_sever_socket(const AppConfig& config) {
 
     return socket_fd;
 }
-
-
 
 static void send_response_to_client(int socket_fd, const struct sockaddr_in& client_addr, const string& message) {
     ssize_t sent_length = sendto(socket_fd, message.c_str(), message.length(), 0,
@@ -282,9 +279,37 @@ static void handle_keep_alive(const string& buffer, const vector<string>& parts,
 
 static void handle_give_up(const string& buffer, const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,
     const GameState& template_game, int socket_fd, const struct sockaddr_in& client_addr) {
+    int err_idx = validate_message_format(buffer, parts, GIVE_UP_LEN);
+    if (err_idx != NO_ERROR) {
+        handle_wrong_message(buffer, static_cast<uint8_t>(err_idx), socket_fd, client_addr);
+        return;
+    }
 
+    uint32_t game_id, player_id;
+    try {
+        player_id = static_cast<uint32_t>(stoul(parts[1]));
+        game_id = static_cast<uint32_t>(stoul(parts[2]));
+    } catch (...) {
+        handle_wrong_message(buffer, static_cast<uint8_t>(parts[0].length() + 1), socket_fd, client_addr);
+        return;
+    }
 
-}
+    GameState* game = find_game_and_verify_players(game_id, player_id, buffer, parts, active_games, socket_fd, client_addr);
+    if (!game) {
+        return;
+    }
+
+    if (game->player_a_id == player_id && game->status != TURN_A) return;
+    if (game->player_b_id == player_id && game->status != TURN_B) return;
+
+    if (game->player_a_id == player_id) {
+        game->status = WIN_B;
+    } else {
+        game->status = WIN_B;
+    }
+
+    send_game_state(*game, game_id, socket_fd, client_addr);
+ }
 
 static void decode_and_verify_message( const string& buffer, unordered_map<uint32_t, GameState>& active_games,
     const GameState& template_game, int socket_fd, const struct sockaddr_in& client_addr) {
