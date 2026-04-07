@@ -5,6 +5,7 @@
 #include <iostream>
 #include <unistd.h>
 #include <vector>
+#include <ctime>
 
 constexpr int INVALID_VALUE = (-1);
 constexpr int BUFFER_SIZE = 1000;

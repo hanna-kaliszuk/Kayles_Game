@@ -35,6 +35,13 @@ static int create_sever_socket(const AppConfig& config) {
         syserr("unable to create socket for server socket.");
     }
 
+    struct timeval tv{};
+    tv.tv_sec = config.timeout;
+    tv.tv_usec = 0;
+    if (setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
+        syserr("setsockopt failed");
+    }
+
     struct sockaddr_in server_address{};
     server_address.sin_family = AF_INET;
     server_address.sin_port = htons(config.port);
@@ -49,6 +56,19 @@ static int create_sever_socket(const AppConfig& config) {
     }
 
     return socket_fd;
+}
+
+static void remove_timed_out_games(unordered_map<uint32_t, GameState>& active_games, int timeout_seconds) {
+    time_t current_time = time(nullptr);
+
+    for (auto it = active_games.begin(); it != active_games.end(); ) {
+        if (current_time - it->second.last_activity > timeout_seconds) {
+            cout << "game no " << it->first << " timed out" << endl;
+            it = active_games.erase(it);
+        } else {
+            ++it;
+        }
+    }
 }
 
 static void send_response_to_client(int socket_fd, const struct sockaddr_in& client_addr, const string& message) {
@@ -176,6 +196,7 @@ static void handle_join_game(const string& buffer, const vector<string>& parts, 
         new_game.player_a_id = assigned_player_id;
         new_game.player_b_id = WAITING_FOR_OPPONENT;
         new_game.status = WAITING_FOR_OPPONENT;
+        new_game.last_activity = time(nullptr);
 
         active_games[current_game_id] = new_game;
         cout << "game no " << current_game_id << " created. player no " << assigned_player_id << " joined it. " << endl;
@@ -353,7 +374,12 @@ static void run_server(const AppConfig& config, const GameState& template_game) 
             reinterpret_cast<struct sockaddr*>(&client_address), &client_address_length);
 
         if (received_length < 0) {
-            syserr("recvfrom failed");
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                remove_timed_out_games(active_games, config.timeout);
+                continue;
+            } else {
+                syserr("recvfrom failed");
+            }
         }
 
         buffer[received_length] = '\0';
@@ -364,6 +390,7 @@ static void run_server(const AppConfig& config, const GameState& template_game) 
         inet_ntop(AF_INET, &client_address.sin_addr, client_ip, sizeof(client_ip));
         uint16_t client_port = ntohs(client_address.sin_port);
 
+        remove_timed_out_games(active_games, config.timeout);
         printf("received message from %s:%u: %s\n",
               client_ip, client_port, buffer);
     }

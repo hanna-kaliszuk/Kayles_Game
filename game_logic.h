@@ -17,6 +17,7 @@ struct GameState {
     uint8_t status;
     uint8_t max_pawn;
     std::vector<uint8_t> pawn_row;
+    time_t last_activity;
 };
 
 void initialize_pawn_row(const std::string& str_pawns, GameState& game);
