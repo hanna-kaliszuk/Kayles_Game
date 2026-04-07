@@ -51,16 +51,16 @@ static void receive_and_display_message(int socket_fd, int timeout) {
         }
     }
 
-    if (received_bytes == 14 && static_cast<unsigned char>(buffer[12]) == 255) {
+    if (received_bytes == WRONG_MSG_LEN && static_cast<unsigned char>(buffer[MESSAGE_LEN]) == ERROR_STATUS) {
         printf("----------------------------------------\n");
         printf("[SERVER -> CLIENT] received MSG_WRONG_MSG\n");
 
-        for(int i = 0; i < 12 && buffer[i] != '\0'; i++) {
+        for(int i = 0; i < MESSAGE_LEN && buffer[i] != '\0'; i++) {
             printf("%c", buffer[i]);
         }
 
-        printf("'\nstatus: %d\n", static_cast<unsigned char>(buffer[12]));
-        printf("error index: %d\n", static_cast<unsigned char>(buffer[13]));
+        printf("'\nstatus: %d\n", static_cast<unsigned char>(buffer[MESSAGE_LEN]));
+        printf("error index: %d\n", static_cast<unsigned char>(buffer[MESSAGE_LEN + 1]));
         printf("----------------------------------------\n\n");
     } else {
         buffer[received_bytes] = '\0';

@@ -8,6 +8,9 @@
 
 constexpr int INVALID_VALUE = (-1);
 constexpr int BUFFER_SIZE = 1000;
+constexpr int WRONG_MSG_LEN = 14;
+constexpr int ERROR_STATUS = 255;
+constexpr int MESSAGE_LEN = 12;
 
 struct AppConfig {
     std::string address;
