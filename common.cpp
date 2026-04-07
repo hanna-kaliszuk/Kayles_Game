@@ -16,15 +16,15 @@ int validate_and_convert_number(const char* text_value, int min_value, int max_v
     long value = strtol(text_value, &endptr, 10);
 
     if (text_value == endptr) { // pusty ciąg znaków
-        return -1;
+        return INVALID_VALUE;
     }
 
     if (*endptr != '\0') { // czy ostatni znak to '\0' a nie np 'a'
-        return -1;
+        return INVALID_VALUE;
     }
 
     if (value < min_value || value > max_value) {
-        return -1;
+        return INVALID_VALUE;
     }
 
     return static_cast<int>(value);
