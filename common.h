@@ -6,26 +6,23 @@
 #include <unistd.h>
 #include <vector>
 
-#define INVALID_VALUE (-1)
-#define BUFFER_SIZE 1000
-
-
-using namespace std;
+constexpr int INVALID_VALUE = (-1);
+constexpr int BUFFER_SIZE = 1000;
 
 struct AppConfig {
-    string address;
-    string pawn_row;
-    string message;
+    std::string address;
+    std::string pawn_row;
+    std::string message;
     int port = INVALID_VALUE;
     int timeout = INVALID_VALUE;
 };
 
 int validate_and_convert_number(const char* text_value, int min_value, int max_value);
 
-void ensure_not_set(bool flag, const string& message);
+void ensure_not_set(bool flag, const std::string& message);
 
 void parse_arguments(int argc, char* argv[], AppConfig& config, const char* allowed_flags, bool is_server);
 
-vector<string> split_message(const string& message, char delimiter);
+std::vector<std::string> split_message(const std::string& message, char delimiter);
 
 #endif //KAYLES_COMMON_H

@@ -4,9 +4,11 @@
 #include <cstdlib>
 #include <sstream>
 
-#define MAX_PORT_NUMBER 65535
-#define MIN_TIMEOUT_VALUE 1
-#define MAX_TIMEOUT_VALUE 99
+namespace {
+    constexpr int MAX_PORT_NUMBER = 65535;
+    constexpr int MIN_TIMEOUT_VALUE = 1;
+    constexpr int MAX_TIMEOUT_VALUE = 99;
+}
 
 int validate_and_convert_number(const char* text_value, int min_value, int max_value) {
     char* endptr;
@@ -28,13 +30,13 @@ int validate_and_convert_number(const char* text_value, int min_value, int max_v
     return static_cast<int>(value);
 }
 
-void ensure_not_set(bool flag, const string& message) {
+void ensure_not_set(bool flag, const std::string& message) {
     if (flag) {
         fatal(message.c_str());
     }
 }
 
-static bool is_valid_pawn_row(const string& pawns) {
+static bool is_valid_pawn_row(const std::string& pawns) {
     if (pawns.empty()) return false;
 
     if (pawns.front() != '1' || pawns.back() != '1') return false;
@@ -107,21 +109,21 @@ void parse_arguments(int argc, char* argv[], AppConfig& config, const char* allo
         }
     }
 
-    string flags_str(allowed_flags);
+    std::string flags_str(allowed_flags);
 
-    if (flags_str.find('a') != string::npos && !has_address) fatal("missing required argument -a");
-    if (flags_str.find('p') != string::npos && !has_port)    fatal("missing required argument -p");
-    if (flags_str.find('t') != string::npos && !has_timeout) fatal("missing required argument -t");
-    if (flags_str.find('r') != string::npos && !has_pawns)   fatal("missing required argument -r");
-    if (flags_str.find('m') != string::npos && !has_message) fatal("missing required argument -m");
+    if (flags_str.find('a') != std::string::npos && !has_address) fatal("missing required argument -a");
+    if (flags_str.find('p') != std::string::npos && !has_port)    fatal("missing required argument -p");
+    if (flags_str.find('t') != std::string::npos && !has_timeout) fatal("missing required argument -t");
+    if (flags_str.find('r') != std::string::npos && !has_pawns)   fatal("missing required argument -r");
+    if (flags_str.find('m') != std::string::npos && !has_message) fatal("missing required argument -m");
 
 }
 
-vector<string> split_message(const string& message, char delimiter) {
-    vector<string> result;
-    string s;
+std::vector<std::string> split_message(const std::string& message, char delimiter) {
+    std::vector<std::string> result;
+    std::string s;
 
-    stringstream tokenStream(message);
+   std::stringstream tokenStream(message);
 
     while (getline(tokenStream, s, delimiter)) {
         result.push_back(s);
