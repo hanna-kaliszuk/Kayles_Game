@@ -79,6 +79,25 @@ static void handle_wrong_message(const string& buffer, uint8_t error_index, int 
     send_response_to_client(socket_fd, client_addr, response);
 }
 
+static GameState* find_game_and_verify_players(uint32_t game_id, uint32_t player_id, const string& buffer, const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games, int socket_fd, const struct sockaddr_in& client_addr) {
+    auto it = active_games.find(game_id);
+    if (it == active_games.end()) {
+        auto error_index = static_cast<uint8_t>(parts[0].length() + parts[1].length() + 2);
+        handle_wrong_message(buffer, error_index, socket_fd, client_addr);
+        return nullptr;
+    }
+
+    GameState& game = it->second;
+
+    if (game.player_a_id != player_id && game.player_b_id != player_id) {
+        auto error_index = static_cast<uint8_t>(parts[0].length() + parts[1].length() + parts[2].length() + 3);
+        handle_wrong_message(buffer, error_index, socket_fd, client_addr);
+        return nullptr;
+    }
+
+    return &game;
+}
+
 static int validate_message_format(const string& buffer, const vector<string>& parts, size_t expected_parts_count) {
     if (parts.size() != expected_parts_count) {
         uint8_t err_idx = 0;
@@ -181,41 +200,30 @@ static void handle_make_move_one(const string& buffer, const vector<string>& par
         return;
     }
 
-    // sprawdzamy, czy gra o podanym ID istnieje
-    auto it = active_games.find(game_id);
-    if (it == active_games.end()) {
-        auto error_index = static_cast<uint8_t>(parts[0].length() + parts[1].length() + 2);
-        handle_wrong_message(buffer, error_index, socket_fd, client_addr);
-        return;
-    }
-
-    GameState& game = it->second;
-
-    // sprawdzamy, czy gracz o podanym ID bierze udział w danej grze
-    if (game.player_a_id != player_id && game.player_b_id != player_id) {
-        auto error_index = static_cast<uint8_t>(parts[0].length() + parts[1].length() + parts[2].length() + 3);
-        handle_wrong_message(buffer, error_index, socket_fd, client_addr);
+    // sprawdzamy, czy gra o podanym ID istnieje i czy gracz o podanym ID bierze udział w danej grze
+    GameState* game = find_game_and_verify_players(game_id, player_id, buffer, parts, active_games, socket_fd, client_addr);
+    if (!game) {
         return;
     }
 
     // sprawdzamy, czy jest teraz pora na ruch tego gracza
-    if (game.player_a_id == player_id && game.status != TURN_A) return;
-    if (game.player_b_id == player_id && game.status != TURN_B) return;
+    if (game->player_a_id == player_id && game->status != TURN_A) return;
+    if (game->player_b_id == player_id && game->status != TURN_B) return;
 
     // sprawdzamy, czy ruch jest w porządku
     //      - czy nie ma przekroczenia max_pawn
-    if (pawn_idx > game.max_pawn) return;
+    if (pawn_idx > game->max_pawn) return;
     //      - czy zbija faktycznie stojące pionki
     size_t byte_idx = pawn_idx / 8;
     size_t bit_idx =  7 - (pawn_idx % 8);
 
-    if ((game.pawn_row[byte_idx] & (1 << bit_idx)) == 0) return;
+    if ((game->pawn_row[byte_idx] & (1 << bit_idx)) == 0) return;
 
     // jeżeli wszystko jest ok, zmieniamy stan gry, odsyłamy graczowi wiadomość
-    game.pawn_row[byte_idx] &= ~(1 << bit_idx);
-    game.status = (game.status == TURN_A) ? TURN_B : TURN_A;
+    game->pawn_row[byte_idx] &= ~(1 << bit_idx);
+    game->status = (game->status == TURN_A) ? TURN_B : TURN_A;
 
-    send_game_state(game, game_id, socket_fd, client_addr);
+    send_game_state(*game, game_id, socket_fd, client_addr);
 }
 
 static void handle_make_move_two(const string& buffer, const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,
