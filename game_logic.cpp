@@ -19,7 +19,7 @@ void initialize_pawn_row(const string& str_pawns, GameState& game) {
 }
 
 string serialize_pawn_row(const GameState& game) {
-    string result = "";
+    string result;
 
     for (int i = 0; i <= game.max_pawn; i++) {
         size_t byte_index = i / 8;
@@ -38,8 +38,6 @@ void knock_pawn_down(GameState& game_state, uint32_t pawn_idx) {
 }
 
 bool is_pawn_standing(GameState& game_state, const uint32_t pawn_idx) {
-    if (pawn_idx > game_state.max_pawn) return false;
-
     size_t byte_idx = pawn_idx / 8;
     size_t bit_idx =  7 - (pawn_idx % 8);
 
@@ -48,8 +46,9 @@ bool is_pawn_standing(GameState& game_state, const uint32_t pawn_idx) {
 }
 
 bool is_legal_move(GameState& game_state, const uint32_t pawn_idx) {
+    if (pawn_idx > game_state.max_pawn) return false;
+
     if (!is_pawn_standing(game_state, pawn_idx)) return false;
 
-    knock_pawn_down(game_state, pawn_idx);
     return true;
 }
