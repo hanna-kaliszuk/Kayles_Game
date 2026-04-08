@@ -16,6 +16,7 @@ constexpr char  DELIMITER = '/';
 constexpr int   JOIN_LEN = 2;
 constexpr int   MOVE_LEN = 4;
 constexpr int   GIVE_UP_LEN = 3;
+constexpr int   KEEP_ALIVE_LEN = 3;
 constexpr int   NO_ERROR = (-1);
 
 static uint32_t next_game_id = 1;
@@ -260,6 +261,7 @@ static void handle_make_move_one(const string& buffer, const vector<string>& par
 
     // jeżeli wszystko jest ok odsyłamy graczowi wiadomość
     game->status = (game->status == TURN_A) ? TURN_B : TURN_A;
+    game->last_activity = time(nullptr);
 
     send_game_state(*game, game_id, socket_fd, client_addr);
 }
@@ -303,6 +305,7 @@ static void handle_make_move_two(const string& buffer, const vector<string>& par
     knock_pawn_down(*game, first_pawn_idx);
     knock_pawn_down(*game, second_pawn_idx);
     game->status = (game->status == TURN_A) ? TURN_B : TURN_A;
+    game->last_activity = time(nullptr);
 
     send_game_state(*game, game_id, socket_fd, client_addr);
 }
@@ -310,7 +313,29 @@ static void handle_make_move_two(const string& buffer, const vector<string>& par
 static void handle_keep_alive(const string& buffer, const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,
     const GameState& template_game, int socket_fd, const struct sockaddr_in& client_addr) {
 
+    int err_idx = validate_message_format(buffer, parts, KEEP_ALIVE_LEN);
+    if (err_idx != NO_ERROR) {
+        handle_wrong_message(buffer, static_cast<uint8_t>(err_idx), socket_fd, client_addr);
+        return;
+    }
 
+    uint32_t game_id, player_id;
+
+    try {
+        player_id = static_cast<uint32_t>(stoul(parts[1]));
+        game_id = static_cast<uint32_t>(stoul(parts[2]));
+    } catch (...) {
+        handle_wrong_message(buffer, static_cast<uint8_t>(parts[0].length() + 1), socket_fd, client_addr);
+        return;
+    }
+
+    GameState* game = find_game_and_verify_players(game_id, player_id, buffer, parts, active_games, socket_fd, client_addr);
+    if (!game) {
+        return;
+    }
+
+    game->last_activity = time(nullptr);
+    send_game_state(*game, game_id, socket_fd, client_addr);
 }
 
 static void handle_give_up(const string& buffer, const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games,
@@ -343,6 +368,8 @@ static void handle_give_up(const string& buffer, const vector<string>& parts, un
     } else {
         game->status = WIN_B;
     }
+
+    game->last_activity = time(nullptr);
 
     send_game_state(*game, game_id, socket_fd, client_addr);
  }
