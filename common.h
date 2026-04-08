@@ -10,6 +10,8 @@ constexpr int WRONG_MSG_LEN = 14;
 constexpr int ERROR_STATUS = 255;
 constexpr int MESSAGE_LEN = 12;
 constexpr int NO_ERROR = (-1);
+constexpr int MAX_MESSAGE_PARTS = 4;
+constexpr int MIN_MESSAGE_PARTS = 0;
 
 struct AppConfig {
     std::string address;

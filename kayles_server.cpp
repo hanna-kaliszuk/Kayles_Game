@@ -14,7 +14,7 @@
 
 using namespace std;
 
-constexpr char  DELIMITER = '/';
+constexpr char DELIMITER = '/';
 
 using MessageHandler = function<void(
     const string& buffer,
@@ -47,29 +47,31 @@ static int create_sever_socket(const AppConfig& config) {
         fatal("invalid IP address provided.");
     }
 
-    if (::bind(socket_fd, reinterpret_cast<struct sockaddr *>(&server_address),
-        static_cast<socklen_t>(sizeof(server_address))) < 0) {
+    if (::bind(socket_fd, reinterpret_cast<struct sockaddr*>(&server_address),
+               static_cast<socklen_t>(sizeof(server_address))) < 0) {
         syserr("unable to bind to port %d", config.port);
     }
 
     return socket_fd;
 }
 
-static void remove_timed_out_games(unordered_map<uint32_t, GameState>& active_games, int timeout_seconds) {
-    time_t current_time = time(nullptr);
+static void remove_timed_out_games(unordered_map<uint32_t, GameState>& active_games, const int timeout_seconds) {
+    const time_t current_time = time(nullptr);
 
-    for (auto it = active_games.begin(); it != active_games.end(); ) {
+    for (auto it = active_games.begin(); it != active_games.end();) {
         if (current_time - it->second.last_activity > timeout_seconds) {
             cout << "game no " << it->first << " timed out" << endl;
             it = active_games.erase(it);
-        } else {
+        }
+        else {
             ++it;
         }
     }
 }
 
-static void decode_and_verify_message( const string& buffer, unordered_map<uint32_t, GameState>& active_games,
-    const GameState& template_game, int socket_fd, const struct sockaddr_in& client_addr) {
+static void decode_and_verify_message(const string& buffer, unordered_map<uint32_t, GameState>& active_games,
+                                      const GameState& template_game, int socket_fd,
+                                      const struct sockaddr_in& client_addr) {
     vector<string> parts = split_message(buffer, DELIMITER);
 
     if (parts.empty()) {
@@ -77,7 +79,7 @@ static void decode_and_verify_message( const string& buffer, unordered_map<uint3
         return;
     }
 
-    const int message_type = validate_and_convert_number(parts[0].c_str(), 0, 4);
+    const int message_type = validate_and_convert_number(parts[0].c_str(), MIN_MESSAGE_PARTS, MAX_MESSAGE_PARTS);
 
     static const unordered_map<int, MessageHandler> handlers = {
         {0, handle_join_game},
@@ -90,7 +92,8 @@ static void decode_and_verify_message( const string& buffer, unordered_map<uint3
     auto it = handlers.find(message_type);
     if (it != handlers.end()) {
         it->second(buffer, parts, active_games, template_game, socket_fd, client_addr);
-    } else {
+    }
+    else {
         handle_wrong_message(buffer, 0, socket_fd, client_addr);
     }
 }
@@ -107,13 +110,14 @@ static void run_server(const AppConfig& config, const GameState& template_game) 
         socklen_t client_address_length = sizeof(client_address);
 
         ssize_t received_length = recvfrom(socket_fd, buffer, BUFFER_SIZE - 1, 0,
-            reinterpret_cast<struct sockaddr*>(&client_address), &client_address_length);
+                                           reinterpret_cast<struct sockaddr*>(&client_address), &client_address_length);
 
         if (received_length < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
                 remove_timed_out_games(active_games, config.timeout);
                 continue;
-            } else {
+            }
+            else {
                 syserr("recvfrom failed");
             }
         }
@@ -126,7 +130,7 @@ static void run_server(const AppConfig& config, const GameState& template_game) 
         inet_ntop(AF_INET, &client_address.sin_addr, client_ip, sizeof(client_ip));
         uint16_t client_port = ntohs(client_address.sin_port);
 
-        cout << "received message from " << client_ip <<":" << client_port <<":" << buffer << endl;
+        cout << "received message from " << client_ip << ":" << client_port << ":" << buffer << endl;
 
         remove_timed_out_games(active_games, config.timeout);
     }
