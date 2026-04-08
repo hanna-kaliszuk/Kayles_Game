@@ -12,4 +12,6 @@ add_executable(Kayles
         err.h
         err.cpp
         game_logic.cpp
+        message_handlers.cpp
+        message_handlers.h
 )

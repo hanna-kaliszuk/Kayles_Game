@@ -11,8 +11,6 @@ namespace {
     constexpr int MAX_TIMEOUT_VALUE = 99;
 }
 
-constexpr int   NO_ERROR = (-1);
-
 int validate_and_convert_number(const char* text_value, int min_value, int max_value) {
     char* endptr;
 
