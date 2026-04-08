@@ -71,7 +71,7 @@ void parse_arguments(int argc, char* argv[], AppConfig& config, const char* allo
             break;
 
         case 't':
-            ensure_not_set(has_timeout, "multiple -t options provided." );
+            ensure_not_set(has_timeout, "multiple -t options provided.");
             config.timeout = validate_and_convert_number(optarg, MIN_TIMEOUT_VALUE, MAX_TIMEOUT_VALUE);
 
             if (config.timeout == INVALID_VALUE) {
@@ -81,10 +81,11 @@ void parse_arguments(int argc, char* argv[], AppConfig& config, const char* allo
             has_timeout = true;
             break;
 
-        case 'r' :
+        case 'r':
             ensure_not_set(has_pawns, "multiple -r options provided.");
             if (!is_valid_pawn_row(optarg)) {
-                fatal("invalid pawn row. expected a non-empty string of '0' and '1' with the first and last one being '1'");
+                fatal(
+                    "invalid pawn row. expected a non-empty string of '0' and '1' with the first and last one being '1'");
             }
             config.pawn_row = optarg;
             has_pawns = true;
@@ -114,18 +115,17 @@ void parse_arguments(int argc, char* argv[], AppConfig& config, const char* allo
     std::string flags_str(allowed_flags);
 
     if (flags_str.find('a') != std::string::npos && !has_address) fatal("missing required argument -a");
-    if (flags_str.find('p') != std::string::npos && !has_port)    fatal("missing required argument -p");
+    if (flags_str.find('p') != std::string::npos && !has_port) fatal("missing required argument -p");
     if (flags_str.find('t') != std::string::npos && !has_timeout) fatal("missing required argument -t");
-    if (flags_str.find('r') != std::string::npos && !has_pawns)   fatal("missing required argument -r");
+    if (flags_str.find('r') != std::string::npos && !has_pawns) fatal("missing required argument -r");
     if (flags_str.find('m') != std::string::npos && !has_message) fatal("missing required argument -m");
-
 }
 
 std::vector<std::string> split_message(const std::string& message, char delimiter) {
     std::vector<std::string> result;
     std::string s;
 
-   std::stringstream tokenStream(message);
+    std::stringstream tokenStream(message);
 
     while (getline(tokenStream, s, delimiter)) {
         result.push_back(s);
@@ -134,11 +134,13 @@ std::vector<std::string> split_message(const std::string& message, char delimite
     return result;
 }
 
-int validate_message_format(const std::string& buffer, const std::vector<std::string>& parts, size_t expected_parts_count) {
+int validate_message_format(const std::string& buffer, const std::vector<std::string>& parts,
+                            size_t expected_parts_count) {
     if (parts.size() != expected_parts_count) {
         if (parts.size() < expected_parts_count) {
             return static_cast<uint8_t>(buffer.length());
-        } else {
+        }
+        else {
             size_t length_sum = 0;
             for (size_t i = 0; i < expected_parts_count; i++) {
                 length_sum += parts[i].length();
