@@ -1,12 +1,13 @@
-#include <sys/types.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/time.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+#include <sys/types.h>
 #include <unistd.h>
+
 #include <cinttypes>
 #include <cstdio>
-#include <netdb.h>
 
 #include "common.h"
 #include "err.h"
@@ -39,7 +40,7 @@ static int create_client_socket(const AppConfig& config) {
     return socket_fd;
 }
 
-static void receive_and_display_message(int socket_fd, int timeout) {
+static void receive_and_display_message(int socket_fd) {
     char buffer[BUFFER_SIZE];
     ssize_t received_bytes = read(socket_fd, buffer, sizeof(buffer) - 1);
 
@@ -81,7 +82,7 @@ int main(int argc, char* argv[]) {
         syserr("write failed");
     }
 
-    receive_and_display_message(socket_fd, config.timeout);
+    receive_and_display_message(socket_fd);
     close(socket_fd);
 
     return 0;
