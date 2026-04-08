@@ -1,13 +1,14 @@
 #ifndef KAYLES_MESSAGE_HANDLERS_H
 #define KAYLES_MESSAGE_HANDLERS_H
 
-#include "game_logic.h"
+#include <netinet/in.h>
 
+#include <cstdint>
 #include <string>
 #include <vector>
 #include <unordered_map>
-#include <netinet/in.h>
-#include <cstdint>
+
+#include "game_logic.h"
 
 void handle_join_game(const std::string& buffer, const std::vector<std::string>& parts, std::unordered_map<uint32_t, GameState>& active_games,
     const GameState& template_game, int socket_fd, const struct sockaddr_in& client_addr);

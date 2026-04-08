@@ -1,15 +1,15 @@
 #include "message_handlers.h"
-#include "common.h"
-#include "err.h"
-
-#include <iostream>
-#include <algorithm>
-#include <ctime>
-#include <new>
-
-#include <sys/socket.h>
 
 #include <arpa/inet.h>
+#include <sys/socket.h>
+
+#include <algorithm>
+#include <ctime>
+#include <iostream>
+#include <new>
+
+#include "common.h"
+#include "err.h"
 
 static uint32_t next_game_id = 1;
 
