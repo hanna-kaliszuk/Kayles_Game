@@ -17,7 +17,7 @@ constexpr int   JOIN_LEN = 2;
 constexpr int   MOVE_LEN = 4;
 constexpr int   GIVE_UP_LEN = 3;
 constexpr int   KEEP_ALIVE_LEN = 3;
-constexpr int   NO_ERROR = (-1);
+
 
 static uint32_t next_game_id = 1;
 
@@ -109,34 +109,7 @@ static void handle_wrong_message(const string& buffer, uint8_t error_index, int 
     send_response_to_client(socket_fd, client_addr, response);
 }
 
-static int validate_message_format(const string& buffer, const vector<string>& parts, size_t expected_parts_count) {
-    if (parts.size() != expected_parts_count) {
-        if (parts.size() < expected_parts_count) {
-            return static_cast<uint8_t>(buffer.length());
-        } else {
-            size_t length_sum = 0;
-            for (size_t i = 0; i < expected_parts_count; i++) {
-                length_sum += parts[i].length();
-            }
 
-            length_sum += (expected_parts_count - 1);
-            return static_cast<uint8_t>(length_sum);
-        }
-    }
-
-    size_t current_idx = 0;
-
-    for (size_t p = 1; p < expected_parts_count; p++) {
-        for (size_t i = 0; i < parts[p].length(); i++) {
-            if (!isdigit(parts[p][i])) {
-                return static_cast<int>(current_idx + i);
-            }
-        }
-        current_idx += parts[p].length() + 1;
-    }
-
-    return NO_ERROR; // brak błędu
-}
 
 static GameState* find_game_and_verify_players(uint32_t game_id, uint32_t player_id, const string& buffer, const vector<string>& parts, unordered_map<uint32_t, GameState>& active_games, int socket_fd, const struct sockaddr_in& client_addr) {
     auto it = active_games.find(game_id);

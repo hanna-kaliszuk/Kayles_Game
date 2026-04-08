@@ -11,6 +11,8 @@ namespace {
     constexpr int MAX_TIMEOUT_VALUE = 99;
 }
 
+constexpr int   NO_ERROR = (-1);
+
 int validate_and_convert_number(const char* text_value, int min_value, int max_value) {
     char* endptr;
 
@@ -131,4 +133,33 @@ std::vector<std::string> split_message(const std::string& message, char delimite
     }
 
     return result;
+}
+
+int validate_message_format(const std::string& buffer, const std::vector<std::string>& parts, size_t expected_parts_count) {
+    if (parts.size() != expected_parts_count) {
+        if (parts.size() < expected_parts_count) {
+            return static_cast<uint8_t>(buffer.length());
+        } else {
+            size_t length_sum = 0;
+            for (size_t i = 0; i < expected_parts_count; i++) {
+                length_sum += parts[i].length();
+            }
+
+            length_sum += (expected_parts_count - 1);
+            return static_cast<uint8_t>(length_sum);
+        }
+    }
+
+    size_t current_idx = 0;
+
+    for (size_t p = 1; p < expected_parts_count; p++) {
+        for (size_t i = 0; i < parts[p].length(); i++) {
+            if (!isdigit(parts[p][i])) {
+                return static_cast<int>(current_idx + i);
+            }
+        }
+        current_idx += parts[p].length() + 1;
+    }
+
+    return NO_ERROR; // brak błędu
 }
