@@ -8,6 +8,7 @@
 #include <vector>
 #include <unordered_map>
 #include <functional>
+#include <new>
 
 using namespace std;
 
@@ -180,6 +181,7 @@ static void handle_join_game(const string& buffer, const vector<string>& parts, 
         if (game.second.status == WAITING_FOR_OPPONENT) {
             game.second.player_b_id = assigned_player_id;
             game.second.status = TURN_B;
+            game.second.last_activity = time(nullptr);
 
             current_game_id = game.first;
             found = true;
@@ -190,16 +192,29 @@ static void handle_join_game(const string& buffer, const vector<string>& parts, 
     }
 
     if (!found) {
-        current_game_id = next_game_id++;
+        if (active_games.size() >= (static_cast<size_t>(UINT32_MAX) - 1)) {
+            return;
+        }
 
-        GameState new_game = template_game;
-        new_game.player_a_id = assigned_player_id;
-        new_game.player_b_id = WAITING_FOR_OPPONENT;
-        new_game.status = WAITING_FOR_OPPONENT;
-        new_game.last_activity = time(nullptr);
+        while (active_games.find(next_game_id) != active_games.end()) {
+            next_game_id = (next_game_id == UINT32_MAX) ? 1 : next_game_id + 1;
+        }
 
-        active_games[current_game_id] = new_game;
-        cout << "game no " << current_game_id << " created. player no " << assigned_player_id << " joined it. " << endl;
+        current_game_id = next_game_id;
+        next_game_id = (next_game_id == UINT32_MAX) ? 1 : next_game_id + 1;
+
+        try {
+            GameState new_game = template_game;
+            new_game.player_a_id = assigned_player_id;
+            new_game.player_b_id = WAITING_FOR_OPPONENT;
+            new_game.status = WAITING_FOR_OPPONENT;
+            new_game.last_activity = time(nullptr);
+
+            active_games[current_game_id] = new_game;
+            cout << "game no " << current_game_id << " created. player no " << assigned_player_id << " joined it. " << endl;
+        } catch (const bad_alloc& e) {
+            return;
+        }
     }
 
     GameState& current_game = active_games[current_game_id];
