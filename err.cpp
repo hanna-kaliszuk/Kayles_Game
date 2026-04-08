@@ -1,10 +1,10 @@
+#include "err.h"
+
 #include <cerrno>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-
-#include "err.h"
 
 [[noreturn]] void syserr(const char* fmt, ...) {
     va_list fmt_args;
