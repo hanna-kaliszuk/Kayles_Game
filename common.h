@@ -2,10 +2,7 @@
 #define KAYLES_COMMON_H
 
 #include <string>
-#include <iostream>
-
 #include <vector>
-
 
 constexpr int INVALID_VALUE = (-1);
 constexpr int BUFFER_SIZE = 1000;
@@ -30,6 +27,6 @@ void parse_arguments(int argc, char* argv[], AppConfig& config, const char* allo
 
 std::vector<std::string> split_message(const std::string& message, char delimiter);
 
-int validate_message_format(const std::string& buffer, const std::vector<std::string>& parts, size_t expected_parts_count)
+int validate_message_format(const std::string& buffer, const std::vector<std::string>& parts, size_t expected_parts_count);
 
 #endif //KAYLES_COMMON_H

@@ -1,9 +1,10 @@
 #include "common.h"
-#include "err.h"
 
 #include <cstdlib>
 #include <sstream>
 #include <unistd.h>
+
+#include "err.h"
 
 namespace {
     constexpr int MAX_PORT_NUMBER = 65535;
