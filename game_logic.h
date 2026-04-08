@@ -1,9 +1,9 @@
 #ifndef KAYLES_GAME_LOGIC_H
 #define KAYLES_GAME_LOGIC_H
 
+#include <cstdint>
 #include <string>
 #include <vector>
-#include <netinet/in.h>
 
 constexpr uint8_t WAITING_FOR_OPPONENT = 0;
 constexpr uint8_t TURN_A = 1;
