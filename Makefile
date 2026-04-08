@@ -1,5 +1,5 @@
 CXX = g++
-CXXFLAGS = -Wall -Wextra -Wconversion -Wsign-conversion -std=c++17
+CXXFLAGS = -Wall -Wextra -Wconversion -Werror -Wsign-conversion -std=c++17
 
 TARGETS = kayles_server kayles_client
 

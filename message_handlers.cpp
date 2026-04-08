@@ -126,7 +126,7 @@ void handle_join_game(const std::string& buffer, const std::vector<std::string>&
 }
 
 void handle_make_move_one(const std::string& buffer, const std::vector<std::string>& parts, std::unordered_map<uint32_t, GameState>& active_games,
-    const GameState& template_game, int socket_fd, const struct sockaddr_in& client_addr) {
+    const GameState& /*template_game*/, int socket_fd, const struct sockaddr_in& client_addr) {
     // sprawdzamy, czy wiadomość, która przyszła jest na pewno ok:
     int err_idx = validate_message_format(buffer, parts, MOVE_LEN);
     if (err_idx != NO_ERROR) {
@@ -170,7 +170,7 @@ void handle_make_move_one(const std::string& buffer, const std::vector<std::stri
 }
 
 void handle_make_move_two(const std::string& buffer, const std::vector<std::string>& parts, std::unordered_map<uint32_t, GameState>& active_games,
-    const GameState& template_game, int socket_fd, const struct sockaddr_in& client_addr) {
+    const GameState& /*template_game*/, int socket_fd, const struct sockaddr_in& client_addr) {
     // sprawdzamy, czy wiadomość, która przyszła jest na pewno ok:
     int err_idx = validate_message_format(buffer, parts, MOVE_LEN);
     if (err_idx != NO_ERROR) {
@@ -214,7 +214,7 @@ void handle_make_move_two(const std::string& buffer, const std::vector<std::stri
 }
 
 void handle_give_up(const std::string& buffer, const std::vector<std::string>& parts, std::unordered_map<uint32_t, GameState>& active_games,
-    const GameState& template_game, int socket_fd, const struct sockaddr_in& client_addr) {
+    const GameState& /*template_game*/, int socket_fd, const struct sockaddr_in& client_addr) {
     int err_idx = validate_message_format(buffer, parts, GIVE_UP_LEN);
     if (err_idx != NO_ERROR) {
         handle_wrong_message(buffer, static_cast<uint8_t>(err_idx), socket_fd, client_addr);
@@ -250,7 +250,7 @@ void handle_give_up(const std::string& buffer, const std::vector<std::string>& p
 }
 
 void handle_keep_alive(const std::string& buffer, const std::vector<std::string>& parts, std::unordered_map<uint32_t, GameState>& active_games,
-    const GameState& template_game, int socket_fd, const struct sockaddr_in& client_addr) {
+    const GameState& /*template_game*/, int socket_fd, const struct sockaddr_in& client_addr) {
 
     int err_idx = validate_message_format(buffer, parts, KEEP_ALIVE_LEN);
     if (err_idx != NO_ERROR) {

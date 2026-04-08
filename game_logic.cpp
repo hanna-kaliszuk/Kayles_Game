@@ -21,7 +21,7 @@ void initialize_pawn_row(const string& str_pawns, GameState& game) {
 string serialize_pawn_row(const GameState& game) {
     string result;
 
-    for (int i = 0; i <= game.max_pawn; i++) {
+    for (size_t i = 0; i <= game.max_pawn; i++) {
         size_t byte_index = i / 8;
         size_t bit_index = 7 - (i % 8);
         bool is_set = (game.pawn_row[byte_index] & (1 << bit_index)) != 0;
@@ -65,7 +65,7 @@ bool any_pawn_left(GameState& game) {
     return false;
 }
 
-int verify_game_state_after_move (GameState& game) {
+uint8_t verify_game_state_after_move (GameState& game) {
     // sprawdź, czy jakiś pionek stoi
     bool pawns_left = any_pawn_left(game);
 
