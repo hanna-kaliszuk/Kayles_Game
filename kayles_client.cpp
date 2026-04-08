@@ -47,7 +47,8 @@ static void receive_and_display_message(int socket_fd) {
     if (received_bytes < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
             return;
-        } else {
+        }
+        else {
             syserr("read failed");
         }
     }
@@ -56,14 +57,15 @@ static void receive_and_display_message(int socket_fd) {
         printf("----------------------------------------\n");
         printf("[SERVER -> CLIENT] received MSG_WRONG_MSG\n");
 
-        for(int i = 0; i < MESSAGE_LEN && buffer[i] != '\0'; i++) {
+        for (int i = 0; i < MESSAGE_LEN && buffer[i] != '\0'; i++) {
             printf("%c", buffer[i]);
         }
 
         printf("'\nstatus: %d\n", static_cast<unsigned char>(buffer[MESSAGE_LEN]));
         printf("error index: %d\n", static_cast<unsigned char>(buffer[MESSAGE_LEN + 1]));
         printf("----------------------------------------\n\n");
-    } else {
+    }
+    else {
         buffer[received_bytes] = '\0';
         printf("----------------------------------------\n");
         printf("[SERVER -> CLIENT] received MSG_GAME_STATE:\n");
