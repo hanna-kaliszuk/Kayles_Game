@@ -30,4 +30,8 @@ bool is_pawn_standing(GameState& game_state, const uint32_t pawn_idx);
 
 bool is_legal_move(GameState& game_state, const uint32_t pawn_idx);
 
+bool any_pawn_left(GameState& game);
+
+int verify_game_state_after_move (GameState& game);
+
 #endif //KAYLES_GAME_LOGIC_H

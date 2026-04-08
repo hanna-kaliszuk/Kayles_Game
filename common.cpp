@@ -3,6 +3,7 @@
 
 #include <cstdlib>
 #include <sstream>
+#include <unistd.h>
 
 namespace {
     constexpr int MAX_PORT_NUMBER = 65535;

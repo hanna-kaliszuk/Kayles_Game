@@ -52,3 +52,28 @@ bool is_legal_move(GameState& game_state, const uint32_t pawn_idx) {
 
     return true;
 }
+
+bool any_pawn_left(GameState& game) {
+    const uint8_t max_pawn = game.max_pawn;
+
+    for (uint8_t i = 0; i <= max_pawn; i++) {
+        if (is_pawn_standing(game, i)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+int verify_game_state_after_move (GameState& game) {
+    // sprawdź, czy jakiś pionek stoi
+    bool pawns_left = any_pawn_left(game);
+
+    if (!pawns_left) {
+        if (game.status == TURN_A) return WIN_A;
+        return WIN_B;
+    }
+
+    if (game.status == TURN_A) return TURN_B;
+    return TURN_A;
+}

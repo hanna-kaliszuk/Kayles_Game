@@ -76,7 +76,10 @@ int main(int argc, char* argv[]) {
 
     parse_arguments(argc, argv, config, "m:a:p:t:", false);
     int socket_fd = create_client_socket(config);
-    write(socket_fd, config.message.c_str(), config.message.length());
+
+    if (write(socket_fd, config.message.c_str(), config.message.length()) < 0) {
+        syserr("write failed");
+    }
 
     receive_and_display_message(socket_fd, config.timeout);
     close(socket_fd);

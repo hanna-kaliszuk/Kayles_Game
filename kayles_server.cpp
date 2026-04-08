@@ -260,7 +260,7 @@ static void handle_make_move_one(const string& buffer, const vector<string>& par
     knock_pawn_down(*game, pawn_idx);
 
     // jeżeli wszystko jest ok odsyłamy graczowi wiadomość
-    game->status = (game->status == TURN_A) ? TURN_B : TURN_A;
+    game->status = verify_game_state_after_move(*game);
     game->last_activity = time(nullptr);
 
     send_game_state(*game, game_id, socket_fd, client_addr);
@@ -304,7 +304,7 @@ static void handle_make_move_two(const string& buffer, const vector<string>& par
     // jeżeli wszystko jest ok, zmieniamy stan gry, odsyłamy graczowi wiadomość
     knock_pawn_down(*game, first_pawn_idx);
     knock_pawn_down(*game, second_pawn_idx);
-    game->status = (game->status == TURN_A) ? TURN_B : TURN_A;
+    game->status = verify_game_state_after_move(*game);
     game->last_activity = time(nullptr);
 
     send_game_state(*game, game_id, socket_fd, client_addr);
@@ -366,7 +366,7 @@ static void handle_give_up(const string& buffer, const vector<string>& parts, un
     if (game->player_a_id == player_id) {
         game->status = WIN_B;
     } else {
-        game->status = WIN_B;
+        game->status = WIN_A;
     }
 
     game->last_activity = time(nullptr);
@@ -432,9 +432,9 @@ static void run_server(const AppConfig& config, const GameState& template_game) 
         inet_ntop(AF_INET, &client_address.sin_addr, client_ip, sizeof(client_ip));
         uint16_t client_port = ntohs(client_address.sin_port);
 
+        cout << "received message from " << client_ip <<":" << client_port <<":" << buffer << endl;
+
         remove_timed_out_games(active_games, config.timeout);
-        printf("received message from %s:%u: %s\n",
-              client_ip, client_port, buffer);
     }
 }
 
