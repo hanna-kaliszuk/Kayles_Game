@@ -1,6 +1,9 @@
 #include "common.h"
 
+#include <arpa/inet.h>
+
 #include <cstdlib>
+#include <cstring>
 #include <sstream>
 #include <unistd.h>
 
@@ -40,6 +43,8 @@ void ensure_not_set(bool flag, const std::string& message) {
 
 static bool is_valid_pawn_row(const std::string& pawns) {
     if (pawns.empty()) return false;
+
+    if (pawns.length() > 256) return false;
 
     if (pawns.front() != '1' || pawns.back() != '1') return false;
 
@@ -163,4 +168,16 @@ int validate_message_format(const std::string& buffer, const std::vector<std::st
     }
 
     return NO_ERROR; // brak błędu
+}
+
+uint32_t read_u32(const char* buf, size_t offset) {
+    uint32_t val;
+    memcpy(&val, buf + offset, sizeof(val));
+    return ntohl(val);
+}
+
+void write_u32(std::vector<char>& out, size_t& off, uint32_t val) {
+    uint32_t net = htonl(val);
+    memcpy(out.data() + off, &net, sizeof(net));
+    off += sizeof(net);
 }

@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <cstdint>
 
 constexpr int INVALID_VALUE = (-1);
 constexpr int BUFFER_SIZE = 1000;
@@ -31,5 +32,9 @@ std::vector<std::string> split_message(const std::string& message, char delimite
 
 int validate_message_format(const std::string& buffer, const std::vector<std::string>& parts,
                             size_t expected_parts_count);
+
+void write_u32(std::vector<char>& out, size_t& off, uint32_t val);
+
+uint32_t read_u32(const char* buf, size_t offset);
 
 #endif //KAYLES_COMMON_H
