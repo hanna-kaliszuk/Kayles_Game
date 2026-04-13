@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <ctime>
+#include <cstring>
 #include <iostream>
 #include <new>
 
@@ -13,27 +14,26 @@
 
 static uint32_t next_game_id = 1;
 
-constexpr int JOIN_LEN = 2;
-constexpr int MOVE_LEN = 4;
-constexpr int GIVE_UP_LEN = 3;
-constexpr int KEEP_ALIVE_LEN = 3;
+// constexpr int JOIN_LEN = 2;
+// constexpr int MOVE_LEN = 4;
+// constexpr int GIVE_UP_LEN = 3;
+// constexpr int KEEP_ALIVE_LEN = 3;
 
 static GameState* find_game_and_verify_players(uint32_t game_id, uint32_t player_id, const std::string& buffer,
-                                               const std::vector<std::string>& parts,
                                                std::unordered_map<uint32_t, GameState>& active_games, int socket_fd,
                                                const struct sockaddr_in& client_addr) {
     auto it = active_games.find(game_id);
     if (it == active_games.end()) {
-        auto error_index = static_cast<uint8_t>(parts[0].length() + parts[1].length() + 2);
-        handle_wrong_message(buffer, error_index, socket_fd, client_addr);
+        // Gra nie istnieje - błąd w polu game_id (zaczyna się na indeksie 5)
+        handle_wrong_message(buffer, 5, socket_fd, client_addr);
         return nullptr;
     }
 
     GameState& game = it->second;
 
     if (game.player_a_id != player_id && game.player_b_id != player_id) {
-        auto error_index = static_cast<uint8_t>(parts[0].length() + parts[1].length() + parts[2].length() + 3);
-        handle_wrong_message(buffer, error_index, socket_fd, client_addr);
+        // Gracz nie należy do gry - błąd w polu player_id (zaczyna się na indeksie 1)
+        handle_wrong_message(buffer, 1, socket_fd, client_addr);
         return nullptr;
     }
 
@@ -41,7 +41,7 @@ static GameState* find_game_and_verify_players(uint32_t game_id, uint32_t player
 }
 
 static void send_response_to_client(int socket_fd, const struct sockaddr_in& client_addr, const std::string& message) {
-    ssize_t sent_length = sendto(socket_fd, message.c_str(), message.length(), 0,
+    ssize_t sent_length = sendto(socket_fd, message.data(), message.length(), 0,
                                  reinterpret_cast<const struct sockaddr*>(&client_addr), sizeof(client_addr));
 
     if (sent_length < 0) {
@@ -51,32 +51,46 @@ static void send_response_to_client(int socket_fd, const struct sockaddr_in& cli
 
 static void send_game_state(const GameState& game_state, uint32_t game_id, int socket_fd,
                             const struct sockaddr_in& client_addr) {
-    std::string response = std::to_string(game_id) + "/" +
-        std::to_string(game_state.player_a_id) + "/" +
-        std::to_string(game_state.player_b_id) + "/" +
-        std::to_string(game_state.status) + "/" +
-        std::to_string(game_state.max_pawn) + "/" +
-        serialize_pawn_row(game_state);
+    std::string response;
+
+    // Zmiana na format sieciowy (Big-Endian)
+    uint32_t net_game_id = htonl(game_id);
+    uint32_t net_pa = htonl(game_state.player_a_id);
+    uint32_t net_pb = htonl(game_state.player_b_id);
+
+    // Kopiowanie 4-bajtowych ID
+    response.append(reinterpret_cast<const char*>(&net_game_id), 4);
+    response.append(reinterpret_cast<const char*>(&net_pa), 4);
+    response.append(reinterpret_cast<const char*>(&net_pb), 4);
+
+    // Kopiowanie 1-bajtowych statusów
+    response.push_back(static_cast<char>(game_state.status));
+    response.push_back(static_cast<char>(game_state.max_pawn));
+
+    // Kopiowanie bitów kręgli prosto z wektora
+    for (uint8_t byte : game_state.pawn_row) {
+        response.push_back(static_cast<char>(byte));
+    }
 
     send_response_to_client(socket_fd, client_addr, response);
 }
 
-void handle_join_game(const std::string& buffer, const std::vector<std::string>& parts, std::unordered_map<uint32_t,
+void handle_join_game(const std::string& buffer, std::unordered_map<uint32_t,
                           GameState>& active_games, const GameState& template_game, int socket_fd,
                       const struct sockaddr_in& client_addr) {
-    int err_idx = validate_message_format(buffer, parts, JOIN_LEN);
-
-    if (err_idx != NO_ERROR) {
-        handle_wrong_message(buffer, static_cast<uint8_t>(err_idx), socket_fd, client_addr);
+    if (buffer.length() != 5) {
+        handle_wrong_message(buffer, static_cast<uint8_t>(buffer.length()), socket_fd, client_addr);
         return;
     }
 
+    // Rozpakowywanie binariów
     uint32_t assigned_player_id;
-    try {
-        assigned_player_id = static_cast<uint32_t>(stoul(parts[1]));
-    }
-    catch (...) { // parse error
-        handle_wrong_message(buffer, 2, socket_fd, client_addr);
+    memcpy(&assigned_player_id, buffer.data() + 1, 4);
+    assigned_player_id = ntohl(assigned_player_id);
+
+    // Gracz nie może mieć ID = 0
+    if (assigned_player_id == 0) {
+        handle_wrong_message(buffer, 1, socket_fd, client_addr);
         return;
     }
 
@@ -129,31 +143,31 @@ void handle_join_game(const std::string& buffer, const std::vector<std::string>&
     send_game_state(current_game, current_game_id, socket_fd, client_addr);
 }
 
-void handle_make_move_one(const std::string& buffer, const std::vector<std::string>& parts,
+void handle_make_move_one(const std::string& buffer,
                           std::unordered_map<uint32_t, GameState>& active_games,
                           const GameState& /*template_game*/, int socket_fd, const struct sockaddr_in& client_addr) {
+
     // sprawdzamy, czy wiadomość, która przyszła jest na pewno ok:
-    int err_idx = validate_message_format(buffer, parts, MOVE_LEN);
-    if (err_idx != NO_ERROR) {
-        handle_wrong_message(buffer, static_cast<uint8_t>(err_idx), socket_fd, client_addr);
+    if (buffer.length() != 10) {
+        handle_wrong_message(buffer, static_cast<uint8_t>(buffer.length()), socket_fd, client_addr);
         return;
     }
 
-    uint32_t game_id, player_id;
-    uint32_t pawn_idx;
+    uint32_t player_id, game_id;
+    memcpy(&player_id, buffer.data() + 1, 4);
+    memcpy(&game_id, buffer.data() + 5, 4);
 
-    try {
-        player_id = static_cast<uint32_t>(stoul(parts[1]));
-        game_id = static_cast<uint32_t>(stoul(parts[2]));
-        pawn_idx = static_cast<uint32_t>(stoul(parts[3]));
-    }
-    catch (...) {
-        handle_wrong_message(buffer, static_cast<uint8_t>(parts[0].length() + 1), socket_fd, client_addr);
+    player_id = ntohl(player_id);
+    game_id = ntohl(game_id);
+    uint8_t pawn_idx = static_cast<uint8_t>(buffer[9]);
+
+    if (player_id == 0) {
+        handle_wrong_message(buffer, 1, socket_fd, client_addr);
         return;
     }
 
     // sprawdzamy, czy gra o podanym ID istnieje i czy gracz o podanym ID bierze udział w danej grze
-    GameState* game = find_game_and_verify_players(game_id, player_id, buffer, parts, active_games, socket_fd,
+    GameState* game = find_game_and_verify_players(game_id, player_id, buffer, active_games, socket_fd,
                                                    client_addr);
     if (!game) {
         return;
@@ -176,33 +190,33 @@ void handle_make_move_one(const std::string& buffer, const std::vector<std::stri
     send_game_state(*game, game_id, socket_fd, client_addr);
 }
 
-void handle_make_move_two(const std::string& buffer, const std::vector<std::string>& parts,
+void handle_make_move_two(const std::string& buffer,
                           std::unordered_map<uint32_t, GameState>& active_games,
                           const GameState& /*template_game*/, int socket_fd, const struct sockaddr_in& client_addr) {
     // sprawdzamy, czy wiadomość, która przyszła jest na pewno ok:
-    int err_idx = validate_message_format(buffer, parts, MOVE_LEN);
-    if (err_idx != NO_ERROR) {
-        handle_wrong_message(buffer, static_cast<uint8_t>(err_idx), socket_fd, client_addr);
+    if (buffer.length() != 10) {
+        handle_wrong_message(buffer, static_cast<uint8_t>(buffer.length()), socket_fd, client_addr);
         return;
     }
 
-    uint32_t game_id, player_id;
-    uint32_t first_pawn_idx;
+    // Rozpakowywanie binariów
+    uint32_t player_id, game_id;
+    memcpy(&player_id, buffer.data() + 1, 4);
+    memcpy(&game_id, buffer.data() + 5, 4);
 
-    try {
-        player_id = static_cast<uint32_t>(stoul(parts[1]));
-        game_id = static_cast<uint32_t>(stoul(parts[2]));
-        first_pawn_idx = static_cast<uint32_t>(stoul(parts[3]));
-    }
-    catch (...) {
-        handle_wrong_message(buffer, static_cast<uint8_t>(parts[0].length() + 1), socket_fd, client_addr);
+    player_id = ntohl(player_id);
+    game_id = ntohl(game_id);
+    uint8_t first_pawn_idx = static_cast<uint8_t>(buffer[9]);
+
+    if (player_id == 0) {
+        handle_wrong_message(buffer, 1, socket_fd, client_addr);
         return;
     }
 
     uint32_t second_pawn_idx = first_pawn_idx + 1;
 
     // sprawdzamy, czy gra o podanym ID istnieje i czy gracz o podanym ID bierze udział w danej grze
-    GameState* game = find_game_and_verify_players(game_id, player_id, buffer, parts, active_games, socket_fd,
+    GameState* game = find_game_and_verify_players(game_id, player_id, buffer, active_games, socket_fd,
                                                    client_addr);
     if (!game) {
         return;
@@ -223,26 +237,27 @@ void handle_make_move_two(const std::string& buffer, const std::vector<std::stri
     send_game_state(*game, game_id, socket_fd, client_addr);
 }
 
-void handle_give_up(const std::string& buffer, const std::vector<std::string>& parts,
+void handle_give_up(const std::string& buffer,
                     std::unordered_map<uint32_t, GameState>& active_games,
                     const GameState& /*template_game*/, int socket_fd, const struct sockaddr_in& client_addr) {
-    int err_idx = validate_message_format(buffer, parts, GIVE_UP_LEN);
-    if (err_idx != NO_ERROR) {
-        handle_wrong_message(buffer, static_cast<uint8_t>(err_idx), socket_fd, client_addr);
+    if (buffer.length() != 9) {
+        handle_wrong_message(buffer, static_cast<uint8_t>(buffer.length()), socket_fd, client_addr);
         return;
     }
 
-    uint32_t game_id, player_id;
-    try {
-        player_id = static_cast<uint32_t>(stoul(parts[1]));
-        game_id = static_cast<uint32_t>(stoul(parts[2]));
-    }
-    catch (...) {
-        handle_wrong_message(buffer, static_cast<uint8_t>(parts[0].length() + 1), socket_fd, client_addr);
+    uint32_t player_id, game_id;
+    memcpy(&player_id, buffer.data() + 1, 4);
+    memcpy(&game_id, buffer.data() + 5, 4);
+
+    player_id = ntohl(player_id);
+    game_id = ntohl(game_id);
+
+    if (player_id == 0) {
+        handle_wrong_message(buffer, 1, socket_fd, client_addr);
         return;
     }
 
-    GameState* game = find_game_and_verify_players(game_id, player_id, buffer, parts, active_games, socket_fd,
+    GameState* game = find_game_and_verify_players(game_id, player_id, buffer, active_games, socket_fd,
                                                    client_addr);
     if (!game) {
         return;
@@ -263,27 +278,27 @@ void handle_give_up(const std::string& buffer, const std::vector<std::string>& p
     send_game_state(*game, game_id, socket_fd, client_addr);
 }
 
-void handle_keep_alive(const std::string& buffer, const std::vector<std::string>& parts,
+void handle_keep_alive(const std::string& buffer,
                        std::unordered_map<uint32_t, GameState>& active_games,
                        const GameState& /*template_game*/, int socket_fd, const struct sockaddr_in& client_addr) {
-    int err_idx = validate_message_format(buffer, parts, KEEP_ALIVE_LEN);
-    if (err_idx != NO_ERROR) {
-        handle_wrong_message(buffer, static_cast<uint8_t>(err_idx), socket_fd, client_addr);
+    if (buffer.length() != 9) {
+        handle_wrong_message(buffer, static_cast<uint8_t>(buffer.length()), socket_fd, client_addr);
         return;
     }
 
-    uint32_t game_id, player_id;
+    uint32_t player_id, game_id;
+    memcpy(&player_id, buffer.data() + 1, 4);
+    memcpy(&game_id, buffer.data() + 5, 4);
 
-    try {
-        player_id = static_cast<uint32_t>(stoul(parts[1]));
-        game_id = static_cast<uint32_t>(stoul(parts[2]));
-    }
-    catch (...) {
-        handle_wrong_message(buffer, static_cast<uint8_t>(parts[0].length() + 1), socket_fd, client_addr);
+    player_id = ntohl(player_id);
+    game_id = ntohl(game_id);
+
+    if (player_id == 0) {
+        handle_wrong_message(buffer, 1, socket_fd, client_addr);
         return;
     }
 
-    GameState* game = find_game_and_verify_players(game_id, player_id, buffer, parts, active_games, socket_fd,
+    GameState* game = find_game_and_verify_players(game_id, player_id, buffer, active_games, socket_fd,
                                                    client_addr);
     if (!game) {
         return;

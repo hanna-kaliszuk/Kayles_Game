@@ -18,7 +18,6 @@ constexpr char DELIMITER = '/';
 
 using MessageHandler = function<void(
     const string& buffer,
-    const vector<string>& parts,
     unordered_map<uint32_t, GameState>& active_games,
     const GameState& template_game,
     int socket_fd,
@@ -79,7 +78,7 @@ static void decode_and_verify_message(const string& buffer, unordered_map<uint32
         return;
     }
 
-    const int message_type = validate_and_convert_number(parts[0].c_str(), MIN_MESSAGE_PARTS, MAX_MESSAGE_PARTS);
+    uint8_t message_type = static_cast<uint8_t>(buffer[0]);
 
     static const unordered_map<int, MessageHandler> handlers = {
         {0, handle_join_game},
@@ -91,7 +90,7 @@ static void decode_and_verify_message(const string& buffer, unordered_map<uint32
 
     auto it = handlers.find(message_type);
     if (it != handlers.end()) {
-        it->second(buffer, parts, active_games, template_game, socket_fd, client_addr);
+        it->second(buffer, active_games, template_game, socket_fd, client_addr);
     }
     else {
         handle_wrong_message(buffer, 0, socket_fd, client_addr);
@@ -109,7 +108,7 @@ static void run_server(const AppConfig& config, const GameState& template_game) 
         struct sockaddr_in client_address;
         socklen_t client_address_length = sizeof(client_address);
 
-        ssize_t received_length = recvfrom(socket_fd, buffer, BUFFER_SIZE - 1, 0,
+        ssize_t received_length = recvfrom(socket_fd, buffer, BUFFER_SIZE, 0,
                                            reinterpret_cast<struct sockaddr*>(&client_address), &client_address_length);
 
         if (received_length < 0) {
@@ -122,15 +121,16 @@ static void run_server(const AppConfig& config, const GameState& template_game) 
             }
         }
 
-        buffer[received_length] = '\0';
+        string binary_buffer(buffer, static_cast<size_t>(received_length));
 
-        decode_and_verify_message(buffer, active_games, template_game, socket_fd, client_address);
+        decode_and_verify_message(binary_buffer, active_games, template_game, socket_fd, client_address);
 
         char client_ip[INET_ADDRSTRLEN];
         inet_ntop(AF_INET, &client_address.sin_addr, client_ip, sizeof(client_ip));
         uint16_t client_port = ntohs(client_address.sin_port);
 
-        cout << "received message from " << client_ip << ":" << client_port << ":" << buffer << endl;
+        cout << "received binary message from " << client_ip << ":" << client_port
+             << " (length: " << received_length << " bytes)" << endl;
 
         remove_timed_out_games(active_games, config.timeout);
     }
