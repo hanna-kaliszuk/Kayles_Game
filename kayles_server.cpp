@@ -14,11 +14,9 @@
 
 using namespace std;
 
-constexpr char DELIMITER = '/';
-
 using MessageHandler = function<void(
-    const string& buffer,
-    const vector<string>& parts,
+    const char* buf,
+    size_t len,
     unordered_map<uint32_t, GameState>& active_games,
     const GameState& template_game,
     int socket_fd,
@@ -69,37 +67,37 @@ static void remove_timed_out_games(unordered_map<uint32_t, GameState>& active_ga
     }
 }
 
-static void decode_and_verify_message(const string& buffer, unordered_map<uint32_t, GameState>& active_games,
-                                      const GameState& template_game, int socket_fd,
-                                      const struct sockaddr_in& client_addr) {
-    vector<string> parts = split_message(buffer, DELIMITER);
-
-    if (parts.empty()) {
-        handle_wrong_message(buffer, 0, socket_fd, client_addr);
+static void decode_and_verify_message(const char* buf, size_t len,
+                                      std::unordered_map<uint32_t, GameState>& active_games,
+                                      const GameState& template_game,
+                                      int socket_fd, const struct sockaddr_in& client_addr) {
+    if (len == 0) {
+        handle_wrong_message(buf, len, 0, socket_fd, client_addr);
         return;
     }
 
-    const int message_type = validate_and_convert_number(parts[0].c_str(), MIN_MESSAGE_PARTS, MAX_MESSAGE_PARTS);
+    const uint8_t msg_type = static_cast<uint8_t>(buf[0]);
 
-    static const unordered_map<int, MessageHandler> handlers = {
-        {0, handle_join_game},
-        {1, handle_make_move_one},
-        {2, handle_make_move_two},
-        {3, handle_keep_alive},
-        {4, handle_give_up}
+    static const std::unordered_map<uint8_t, MessageHandler> handlers = {
+        {0u, handle_join_game},
+        {1u, handle_make_move_one},
+        {2u, handle_make_move_two},
+        {3u, handle_keep_alive},
+        {4u, handle_give_up}
     };
 
-    auto it = handlers.find(message_type);
+    auto it = handlers.find(msg_type);
     if (it != handlers.end()) {
-        it->second(buffer, parts, active_games, template_game, socket_fd, client_addr);
+        it->second(buf, len, active_games, template_game, socket_fd, client_addr);
     }
     else {
-        handle_wrong_message(buffer, 0, socket_fd, client_addr);
+        handle_wrong_message(buf, len, 0, socket_fd, client_addr);
     }
 }
 
 static void run_server(const AppConfig& config, const GameState& template_game) {
     cout << "running server on port " << config.port << endl;
+
     int socket_fd = create_sever_socket(config);
     char buffer[BUFFER_SIZE];
 
@@ -122,17 +120,19 @@ static void run_server(const AppConfig& config, const GameState& template_game) 
             }
         }
 
-        buffer[received_length] = '\0';
-
-        decode_and_verify_message(buffer, active_games, template_game, socket_fd, client_address);
+        const size_t received_len = static_cast<size_t>(received_length);
 
         char client_ip[INET_ADDRSTRLEN];
         inet_ntop(AF_INET, &client_address.sin_addr, client_ip, sizeof(client_ip));
         uint16_t client_port = ntohs(client_address.sin_port);
 
-        cout << "received message from " << client_ip << ":" << client_port << ":" << buffer << endl;
+        cout << "received " << received_len << " bytes from "
+            << client_ip << ":" << client_port << endl;
 
         remove_timed_out_games(active_games, config.timeout);
+        decode_and_verify_message(buffer, received_len,
+                                  active_games, template_game,
+                                  socket_fd, client_address);
     }
 }
 
