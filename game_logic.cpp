@@ -2,8 +2,8 @@
 
 using namespace std;
 
-constexpr int BITS_PER_BYTE = 8;
-constexpr int BIT_INDEX_OFFSET = BITS_PER_BYTE - 1;
+constexpr size_t BITS_PER_BYTE = 8u;
+constexpr size_t BIT_INDEX_OFFSET = BITS_PER_BYTE - 1u;
 
 void initialize_pawn_row(const string& str_pawns, GameState& game) {
     game.max_pawn = static_cast<uint8_t>(str_pawns.length() - 1);
