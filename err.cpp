@@ -1,3 +1,8 @@
+/**
+ * @file err.cpp
+ * @brief Implementation of error handling utilities
+**/
+
 #include "err.h"
 
 #include <cerrno>
