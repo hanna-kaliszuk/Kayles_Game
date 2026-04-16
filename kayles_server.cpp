@@ -1,6 +1,6 @@
 /**
  * @file kayles_server.cpp 
- * @brief UDP server for the network Kayles game. 
+ * @brief Implementation of the UDP server for the network Kayles game. 
  * 
  * 1. GAME RULES: 
  * Kayles is a simple, two-player game played on a row of N pawns. 
