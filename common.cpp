@@ -2,6 +2,7 @@
 
 #include <arpa/inet.h>
 
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 #include <sstream>
