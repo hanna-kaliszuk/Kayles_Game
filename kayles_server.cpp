@@ -95,6 +95,8 @@
 
 using namespace std;
 
+constexpr uint8_t ERROR_IDX_TYPE = 0; 
+
 /**
  * @brief Type alias for the message dispatch function to simplify the handler map. 
 **/
@@ -147,21 +149,43 @@ static int create_sever_socket(const AppConfig& config) {
         fatal("invalid IP address provided.");
     }
 
+    // extract the binary IPv4 address
     server_address.sin_addr = ((struct sockaddr_in*)res->ai_addr)->sin_addr;
     
     freeaddrinfo(res);
 
+    // bind the socket to the locak address and port. 
     if (::bind(socket_fd, reinterpret_cast<struct sockaddr*>(&server_address),
                static_cast<socklen_t>(sizeof(server_address))) < 0) {
         syserr("unable to bind to port %d", config.port);
     }
 
+
+    // get the actual port (in case 0 was provided)
+    sockaddr_in addr{}; 
+    socklen_t len = sizeof(addr); 
+
+    if (getsockname(socket_fd, (sockaddr*)&addr, &len) == 0) {
+        cout << "running server on port " << ntohs(addr.sin_port) << endl;
+    }
+
     return socket_fd;
 }
 
+/**
+ * @brief Helper function to remove timeouted games. 
+ * 
+ * Goes through all of the active games and for each one verifies it the last connection to the session has been made within <server_timeout> seconds. If not, the game is removed from the active sessions. 
+ * 
+ * @param active_games the map of the active games
+ * @param timeout_seconds server timeout
+ * 
+ * @note The function modifies active_games structure. 
+**/
 static void remove_timed_out_games(unordered_map<uint32_t, GameState>& active_games, const int timeout_seconds) {
     const time_t current_time = time(nullptr);
 
+    // chceck for every active game
     for (auto it = active_games.begin(); it != active_games.end();) {
         if (current_time - it->second.last_activity > timeout_seconds) {
             cout << "game no " << it->first << " timed out" << endl;
@@ -173,17 +197,30 @@ static void remove_timed_out_games(unordered_map<uint32_t, GameState>& active_ga
     }
 }
 
-static void decode_and_verify_message(const char* buf, size_t len,
-                                      std::unordered_map<uint32_t, GameState>& active_games,
-                                      const GameState& template_game,
-                                      int socket_fd, const struct sockaddr_in& client_addr) {
+/**
+ * @brief Helper function to decode the message and dispatch it to the right handler. 
+ * 
+ * The function identifies the type of the request by inspecting the first byte of the message. If the message type is recognized, the corresponding logic is executed; otherwise MSG_WRONG_MSG message is sent to the requesting client. 
+ * 
+ * @param buf pointer to the raw binary buffer received from the network
+ * @param len size of the received buffer in bytes (must match JOIN_SIZE)
+ * @param active_games the map of currently active games indexed by game ID
+ * @param template_game a template representing a brand-new game state
+ * @param socket_fd server socket file descriptor
+ * @param client_addr the address structure of the client that sent the request
+ * 
+ **/
+static void decode_and_verify_message(const char* buf, size_t len, std::unordered_map<uint32_t, GameState>& active_games, const GameState& template_game, int socket_fd, const struct sockaddr_in& client_addr) {
+    // validate message length 
     if (len == 0) {
-        handle_wrong_message(buf, len, 0, socket_fd, client_addr);
+        handle_wrong_message(buf, len, ERROR_IDX_TYPE, socket_fd, client_addr);
         return;
     }
 
+
     const uint8_t msg_type = static_cast<uint8_t>(buf[0]);
 
+    // static map of functions for O(1) dispatch 
     static const std::unordered_map<uint8_t, MessageHandler> handlers = {
         {0u, handle_join_game},
         {1u, handle_make_move_one},
@@ -192,19 +229,31 @@ static void decode_and_verify_message(const char* buf, size_t len,
         {4u, handle_give_up}
     };
 
+    // execute logic corresponding to the request type 
     auto it = handlers.find(msg_type);
     if (it != handlers.end()) {
+        // dispatch the buffer to the specific handler 
         it->second(buf, len, active_games, template_game, socket_fd, client_addr);
     }
     else {
-        handle_wrong_message(buf, len, 0, socket_fd, client_addr);
+        // if the type is not regonized, notify the client about the malformed message
+        handle_wrong_message(buf, len, ERROR_IDX_TYPE, socket_fd, client_addr);
     }
 }
 
+/**
+ * @brief Helper function to run the main server loop. 
+ * 
+ * Receives datagrams from clients, logs them, maintains active game sessions and dispatches messages for decoding, validation and game state updates. Also removes timed-out game sessions. 
+ * 
+ * @param config server configuration struct
+ * @param template_game template used to initialize new game sessions 
+**/
 static void run_server(const AppConfig& config, const GameState& template_game) {
+    // create UDP server socket 
     int socket_fd = create_sever_socket(config);
-    cout << "running server on port " << config.port << endl;
-    
+
+    // buffer for incoming messages 
     char buffer[BUFFER_SIZE];
 
     unordered_map<uint32_t, GameState> active_games;
@@ -213,11 +262,14 @@ static void run_server(const AppConfig& config, const GameState& template_game) 
         struct sockaddr_in client_address;
         socklen_t client_address_length = sizeof(client_address);
 
+        // receive next UDP packet 
         ssize_t received_length = recvfrom(socket_fd, buffer, BUFFER_SIZE - 1, 0,
                                            reinterpret_cast<struct sockaddr*>(&client_address), &client_address_length);
 
+        // handle timeout
         if (received_length < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                // clean up timed-out games 
                 remove_timed_out_games(active_games, config.timeout);
                 continue;
             }
@@ -228,14 +280,20 @@ static void run_server(const AppConfig& config, const GameState& template_game) 
 
         const size_t received_len = static_cast<size_t>(received_length);
 
+        // convert client IP to a readable one 
         char client_ip[INET_ADDRSTRLEN];
         inet_ntop(AF_INET, &client_address.sin_addr, client_ip, sizeof(client_ip));
+
+        // convert client port 
         uint16_t client_port = ntohs(client_address.sin_port);
 
         cout << "received " << received_len << " bytes from "
             << client_ip << ":" << client_port << endl;
 
+        // clean up timed-out games 
         remove_timed_out_games(active_games, config.timeout);
+
+        // handle incoming message 
         decode_and_verify_message(buffer, received_len,
                                   active_games, template_game,
                                   socket_fd, client_address);
@@ -247,6 +305,7 @@ int main(int argc, char* argv[]) {
     GameState template_game;
 
     parse_arguments(argc, argv, config, "r:a:p:t:", true);
+    
     initialize_pawn_row(config.pawn_row, template_game);
 
     run_server(config, template_game);
