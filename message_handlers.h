@@ -1,6 +1,7 @@
 /**
  * @file message_handlers.h
  * @brief Message handling utilities to process incoming UDP binary messages on the server.
+ * 
  * * Protocol definitions:
  * - MSG_JOIN (0): [type : 1][player_id : 4] = 5B
  * - MSG_MOVE_1 (1): [type : 1][player_id : 4][game_id : 4][pawn : 1] = 10B
