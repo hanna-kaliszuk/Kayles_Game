@@ -95,6 +95,9 @@
 
 using namespace std;
 
+/**
+ * @brief Type alias for the message dispatch function to simplify the handler map. 
+**/
 using MessageHandler = function<void(
     const char* buf,
     size_t len,
@@ -104,13 +107,23 @@ using MessageHandler = function<void(
     const struct sockaddr_in& client_addr
 )>;
 
+/**
+ * @brief Helper function to create and configure a UDP socket for the server. 
+ * 
+ * @param config The application configuration containing address, pawn_row, message, port and timeout.
+ * 
+ * @return The configured socket file descriptor. 
+ * 
+**/
 static int create_sever_socket(const AppConfig& config) {
+    // create a standard IPv4 UDP socket 
     int socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
 
     if (socket_fd < 0) {
         syserr("unable to create socket for server socket.");
     }
 
+    // set the timeout accordingly 
     struct timeval tv{};
     tv.tv_sec = config.timeout;
     tv.tv_usec = 0;
@@ -122,9 +135,21 @@ static int create_sever_socket(const AppConfig& config) {
     server_address.sin_family = AF_INET;
     server_address.sin_port = htons(config.port);
 
-    if (inet_pton(AF_INET, config.address.c_str(), &server_address.sin_addr) <= 0) {
+    struct addrinfo hints{}; 
+    struct addrinfo* res = nullptr; 
+
+    hints.ai_family = AF_INET;       
+    hints.ai_socktype = SOCK_DGRAM;
+
+    int err = getaddrinfo(config.address.c_str(), nullptr,&hints,&res);
+
+    if (err != 0 || !res) {
         fatal("invalid IP address provided.");
     }
+
+    server_address.sin_addr = ((struct sockaddr_in*)res->ai_addr)->sin_addr;
+    
+    freeaddrinfo(res);
 
     if (::bind(socket_fd, reinterpret_cast<struct sockaddr*>(&server_address),
                static_cast<socklen_t>(sizeof(server_address))) < 0) {
@@ -177,9 +202,9 @@ static void decode_and_verify_message(const char* buf, size_t len,
 }
 
 static void run_server(const AppConfig& config, const GameState& template_game) {
-    cout << "running server on port " << config.port << endl;
-
     int socket_fd = create_sever_socket(config);
+    cout << "running server on port " << config.port << endl;
+    
     char buffer[BUFFER_SIZE];
 
     unordered_map<uint32_t, GameState> active_games;
