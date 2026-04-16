@@ -26,7 +26,6 @@
  * * @param ftm A printf-style format string
  * @param ... Additional arguments matching the format string
 **/
-// Print information about an error and quits.
 [[noreturn]] void fatal(const char* fmt, ...);
 
 #endif //KAYLES_ERR_H
