@@ -154,12 +154,11 @@ static int create_sever_socket(const AppConfig& config) {
     
     freeaddrinfo(res);
 
-    // bind the socket to the locak address and port. 
+    // bind the socket to the local address and port.
     if (::bind(socket_fd, reinterpret_cast<struct sockaddr*>(&server_address),
                static_cast<socklen_t>(sizeof(server_address))) < 0) {
         syserr("unable to bind to port %d", config.port);
     }
-
 
     // get the actual port (in case 0 was provided)
     sockaddr_in addr{}; 
@@ -210,13 +209,13 @@ static void remove_timed_out_games(unordered_map<uint32_t, GameState>& active_ga
  * @param client_addr the address structure of the client that sent the request
  * 
  **/
-static void decode_and_verify_message(const char* buf, size_t len, std::unordered_map<uint32_t, GameState>& active_games, const GameState& template_game, int socket_fd, const struct sockaddr_in& client_addr) {
+static void decode_and_verify_message(const char* buf, size_t len, std::unordered_map<uint32_t, GameState>& active_games,
+    const GameState& template_game, int socket_fd, const struct sockaddr_in& client_addr) {
     // validate message length 
     if (len == 0) {
         handle_wrong_message(buf, len, ERROR_IDX_TYPE, socket_fd, client_addr);
         return;
     }
-
 
     const uint8_t msg_type = static_cast<uint8_t>(buf[0]);
 
@@ -294,9 +293,7 @@ static void run_server(const AppConfig& config, const GameState& template_game) 
         remove_timed_out_games(active_games, config.timeout);
 
         // handle incoming message 
-        decode_and_verify_message(buffer, received_len,
-                                  active_games, template_game,
-                                  socket_fd, client_address);
+        decode_and_verify_message(buffer, received_len, active_games, template_game, socket_fd, client_address);
     }
 }
 
