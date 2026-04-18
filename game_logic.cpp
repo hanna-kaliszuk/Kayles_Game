@@ -17,16 +17,16 @@ constexpr size_t BITS_PER_BYTE = 8u;
 // offset used to convert a within-byte pawn position into a bit index.
 constexpr size_t BIT_INDEX_OFFSET = BITS_PER_BYTE - 1u;
 
-constexpr char PAWN_STANDING = '1';
-constexpr char PAWN_KNOCKED_DOWN = '0';
-
 void initialize_pawn_row(const string& str_pawns, GameState& game) {
+    // indices are 0-based
     game.max_pawn = static_cast<uint8_t>(str_pawns.length() - 1);
 
     // allocate the minimum number of bytes needed to hold all pawns
     const size_t num_bytes = (game.max_pawn / BITS_PER_BYTE) + 1;
 
-    game.pawn_row.assign(num_bytes, PAWN_KNOCKED_DOWN);
+    // clear all bits
+    game.pawn_row.assign(num_bytes, 0);
+
     for (size_t i = 0; i < str_pawns.length(); i++) {
         if (str_pawns[i] == PAWN_STANDING) {
             const size_t byte_index = i / BITS_PER_BYTE;
@@ -40,6 +40,7 @@ void initialize_pawn_row(const string& str_pawns, GameState& game) {
 string serialize_pawn_row(const GameState& game) {
     string result;
 
+    // reconstruct the string
     for (size_t i = 0; i <= game.max_pawn; i++) {
         const size_t byte_index = i / BITS_PER_BYTE;
         const size_t bit_index = BIT_INDEX_OFFSET - (i % BITS_PER_BYTE);
@@ -64,6 +65,7 @@ bool is_pawn_standing(GameState& game_state, const uint32_t pawn_idx) {
     const size_t byte_idx = pawn_idx / BITS_PER_BYTE;
     const size_t bit_idx = BIT_INDEX_OFFSET - (pawn_idx % BITS_PER_BYTE);
 
+    // check if the bit is set
     if ((game_state.pawn_row[byte_idx] & (1 << bit_idx)) == 0) return false;
     return true;
 }

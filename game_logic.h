@@ -22,29 +22,25 @@
 #include <string>
 #include <vector>
 
-// waiting for the second player to join
+// game status constants
 constexpr uint8_t WAITING_FOR_OPPONENT = 0;
-
-// game in progress - player A's turn
 constexpr uint8_t TURN_A = 1;
-
-// game in progress - player B's turn
 constexpr uint8_t TURN_B = 2;
-
-// terminal state - player A won
 constexpr uint8_t WIN_A = 3;
-
-// terminal state - player B won
 constexpr uint8_t WIN_B = 4;
+
+// board representation constants
+constexpr char PAWN_STANDING = '1';
+constexpr char PAWN_KNOCKED_DOWN = '0';
 
 /**
  * @brief Represents the current state of a single Kayles game session. 
  * 
- * Player ID: unique, non-negative integers
- * Status: current state of the game:
- * Max_pawn: max pawn index
- * Pawn_row: bit map representing pawns
- * Last_activity: time of the last activity within the session 
+ * @field Player ID: unique, non-negative integers
+ * @field Status: current state of the game:
+ * @field Max_pawn: max pawn index
+ * @field Pawn_row: bit map representing pawns
+ * @field Last_activity: time of the last activity within the session
  * 
 **/
 struct GameState {
