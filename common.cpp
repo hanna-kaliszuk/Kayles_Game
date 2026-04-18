@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <cstring>
+#include <ranges>
 #include <sstream>
 #include <unistd.h>
 
@@ -61,7 +62,7 @@ static bool is_valid_pawn_row(const std::string& pawns) {
 
     if (pawns.front() != PAWN_STANDING || pawns.back() != PAWN_STANDING) return false;
 
-    return std::ranges::all_of(pawns, [](char c) {
+    return std::all_of(pawns.begin(), pawns.end(), [](char c) {
         return c == PAWN_STANDING || c == PAWN_KNOCKED_DOWN;
     });
 }
