@@ -22,6 +22,7 @@ static uint32_t next_game_id = 1;
 
 constexpr uint8_t ERROR_IDX_GAME = 5;
 constexpr uint8_t ERROR_IDX_PLAYER = 1;
+
 // game_id (4B) + player_a_id (4B) + player_b_id (4B) + game_status (1B) + max_pawn_idx (1B)
 constexpr size_t BASIC_MSG_SIZE = 14u;
 constexpr size_t INVALID_PLAYER_ID = 0u;
@@ -219,11 +220,10 @@ void handle_make_move_one(const char* buf, size_t len, std::unordered_map<uint32
     }
 
     // verify that it is the clients turn
-    if (game->player_a_id == player_id && game->status != TURN_A) {
-        send_game_state(*game, game_id, socket_fd, client_addr);
-        return;
-    }
-    if (game->player_b_id == player_id && game->status != TURN_B) {
+    bool is_valid_turn = (game->player_a_id == player_id && game->status == TURN_A) ||
+                         (game->player_b_id == player_id && game->status == TURN_B);
+
+    if (!is_valid_turn) {
         send_game_state(*game, game_id, socket_fd, client_addr);
         return;
     }
@@ -273,11 +273,10 @@ void handle_make_move_two(const char* buf, size_t len, std::unordered_map<uint32
     }
 
     // verify that it is the clients turn
-    if (game->player_a_id == player_id && game->status != TURN_A) {
-        send_game_state(*game, game_id, socket_fd, client_addr);
-        return;
-    }
-    if (game->player_b_id == player_id && game->status != TURN_B) {
+    bool is_valid_turn = (game->player_a_id == player_id && game->status == TURN_A) ||
+                         (game->player_b_id == player_id && game->status == TURN_B);
+
+    if (!is_valid_turn) {
         send_game_state(*game, game_id, socket_fd, client_addr);
         return;
     }
@@ -326,11 +325,10 @@ void handle_give_up(const char* buf, size_t len, std::unordered_map<uint32_t, Ga
     }
 
     // verify that it is the clients turn
-    if (game->player_a_id == player_id && game->status != TURN_A) {
-        send_game_state(*game, game_id, socket_fd, client_addr);
-        return;
-    }
-    if (game->player_b_id == player_id && game->status != TURN_B) {
+    bool is_valid_turn = (game->player_a_id == player_id && game->status == TURN_A) ||
+                         (game->player_b_id == player_id && game->status == TURN_B);
+
+    if (!is_valid_turn) {
         send_game_state(*game, game_id, socket_fd, client_addr);
         return;
     }
