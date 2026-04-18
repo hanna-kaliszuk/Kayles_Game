@@ -1,3 +1,9 @@
+/**
+* @file common.cpp
+ * @brief Implementation of shared argument-parsing, validation and serialization utilities used by both the server and
+ * the client.
+**/
+
 #include "common.h"
 
 #include <arpa/inet.h>
@@ -10,25 +16,39 @@
 
 #include "err.h"
 
-namespace {
-    constexpr int MAX_PORT_NUMBER = 65535;
-    constexpr int MIN_TIMEOUT_VALUE = 1;
-    constexpr int MAX_TIMEOUT_VALUE = 99;
-}
+
+// highest valid UDP port number
+constexpr int MAX_PORT_NUMBER = 65535;
+
+// shortest acceptable session timeout (seconds)
+constexpr int MIN_TIMEOUT_VALUE = 1;
+
+// longest acceptable session timeout (seconds)
+constexpr int MAX_TIMEOUT_VALUE = 99;
+
+constexpr int MAX_PAWNS = 256;
+constexpr char PAWN_STANDING = '1';
+constexpr char PAWN_KNOCKED_DOWN = '0';
+constexpr int MIN_SERVER_PORT = 0;
+constexpr int MIN_CLIENT_PORT = 1;
+
 
 int validate_and_convert_number(const char* text_value, int min_value, int max_value) {
     char* endptr;
 
     long value = strtol(text_value, &endptr, 10);
 
-    if (text_value == endptr) { // pusty ciąg znaków
+    // empty string
+    if (text_value == endptr) {
         return INVALID_VALUE;
     }
 
-    if (*endptr != '\0') { // czy ostatni znak to '\0' a nie np 'a'
+    // trailing non-numeric character (eg. 'a')
+    if (*endptr != '\0') {
         return INVALID_VALUE;
     }
 
+    // outside the range
     if (value < min_value || value > max_value) {
         return INVALID_VALUE;
     }
@@ -45,12 +65,12 @@ void ensure_not_set(bool flag, const std::string& message) {
 static bool is_valid_pawn_row(const std::string& pawns) {
     if (pawns.empty()) return false;
 
-    if (pawns.length() > 256) return false;
+    if (pawns.length() > MAX_PAWNS) return false;
 
-    if (pawns.front() != '1' || pawns.back() != '1') return false;
+    if (pawns.front() != PAWN_STANDING || pawns.back() != PAWN_STANDING) return false;
 
     return all_of(pawns.begin(), pawns.end(), [](char c) {
-        return c == '0' || c == '1';
+        return c == PAWN_STANDING || c == PAWN_KNOCKED_DOWN;
     });
 }
 
@@ -90,8 +110,8 @@ void parse_arguments(int argc, char* argv[], AppConfig& config, const char* allo
         case 'r':
             ensure_not_set(has_pawns, "multiple -r options provided.");
             if (!is_valid_pawn_row(optarg)) {
-                fatal(
-                    "invalid pawn row. expected a non-empty string of '0' and '1' with the first and last one being '1'");
+                fatal("invalid pawn row. expected a non-empty string of '0' and '1' with the first and last one "
+                      "being '1'");
             }
             config.pawn_row = optarg;
             has_pawns = true;
@@ -100,7 +120,7 @@ void parse_arguments(int argc, char* argv[], AppConfig& config, const char* allo
         case 'p':
             {
                 ensure_not_set(has_port, "multiple -p options provided.");
-                int min_port = is_server ? 0 : 1;
+                int min_port = is_server ? MIN_SERVER_PORT : MIN_CLIENT_PORT;
                 config.port = validate_and_convert_number(optarg, min_port, MAX_PORT_NUMBER);
 
                 if (config.port == INVALID_VALUE) {
@@ -120,6 +140,7 @@ void parse_arguments(int argc, char* argv[], AppConfig& config, const char* allo
 
     std::string flags_str(allowed_flags);
 
+    // verify that every flag present in allowed_flags has been set
     if (flags_str.find('a') != std::string::npos && !has_address) fatal("missing required argument -a");
     if (flags_str.find('p') != std::string::npos && !has_port) fatal("missing required argument -p");
     if (flags_str.find('t') != std::string::npos && !has_timeout) fatal("missing required argument -t");
@@ -140,13 +161,14 @@ std::vector<std::string> split_message(const std::string& message, char delimite
     return result;
 }
 
-int validate_message_format(const std::string& buffer, const std::vector<std::string>& parts,
-                            size_t expected_parts_count) {
+int validate_message_format(const std::string& buffer, const std::vector<std::string>& parts, size_t expected_parts_count) {
+    // validate number of message parts
     if (parts.size() != expected_parts_count) {
         if (parts.size() < expected_parts_count) {
             return static_cast<uint8_t>(buffer.length());
         }
         else {
+            // first missing part
             size_t length_sum = 0;
             for (size_t i = 0; i < expected_parts_count; i++) {
                 length_sum += parts[i].length();
@@ -159,12 +181,14 @@ int validate_message_format(const std::string& buffer, const std::vector<std::st
 
     size_t current_idx = 0;
 
+    // first non digit element
     for (size_t p = 1; p < expected_parts_count; p++) {
         for (size_t i = 0; i < parts[p].length(); i++) {
             if (!isdigit(parts[p][i])) {
                 return static_cast<int>(current_idx + i);
             }
         }
+        // +1 for the separator
         current_idx += parts[p].length() + 1;
     }
 
