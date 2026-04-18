@@ -24,6 +24,7 @@ constexpr size_t JOIN_SIZE = 5u;
 constexpr size_t MOVE_SIZE = 10u;
 constexpr size_t KEEP_ALIVE_SIZE = 9u;
 constexpr size_t GIVE_UP_SIZE = 9u;
+
 constexpr size_t OFF_PLAYER_ID = 1u; // bytes 1-4
 constexpr size_t OFF_GAME_ID = 5u; // bytes 5-8
 constexpr size_t OFF_PAWN_IDX = 9u; // bytes 9-12

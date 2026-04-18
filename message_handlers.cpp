@@ -30,7 +30,7 @@ constexpr size_t INVALID_PLAYER_ID = 0u;
 /**
  * @brief Helper function to send a raw binary response to the client.
  *
- * In case sentto fails, a syserr function is called. 
+ * In case sendto() fails, a syserr() function is called.
  * 
  * @param socket_fd server socket file descriptor
  * @param client_addr the address structure of the receiving client
@@ -182,7 +182,7 @@ void handle_join_game(const char* buf, size_t len, std::unordered_map<uint32_t, 
             << " joined it." << std::endl;
         }
         catch (const std::bad_alloc&) {
-            // fail silently
+            // ignore silently
             return;
         }
     }
