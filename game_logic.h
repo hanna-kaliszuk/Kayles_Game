@@ -49,7 +49,7 @@ struct GameState {
     uint8_t status;             
     uint8_t max_pawn;
     std::vector<uint8_t> pawn_row;
-    time_t last_activity;
+    uint64_t last_activity;
 };
 
 /**

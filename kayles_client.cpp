@@ -69,8 +69,8 @@ static int create_client_socket(const AppConfig& config) {
 
     // set the timeout
     struct timeval tv{};
-    tv.tv_sec = config.timeout;
-    tv.tv_usec = 0;
+    tv.tv_sec = static_cast<time_t>(config.timeout);
+    tv.tv_usec = static_cast<suseconds_t>((config.timeout - tv.tv_sec) * 1000000.0);
     if (setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
         syserr("setsockopt failed");
     }

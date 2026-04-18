@@ -9,6 +9,7 @@
 #include <arpa/inet.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cstdlib>
 #include <cstring>
 #include <ranges>
@@ -19,8 +20,8 @@
 #include "game_logic.h" // to get pawn constants
 
 constexpr int MAX_PORT_NUMBER = 65535;
-constexpr int MIN_TIMEOUT_VALUE = 1;
-constexpr int MAX_TIMEOUT_VALUE = 99;
+constexpr double MIN_TIMEOUT_VALUE = 1.0;
+constexpr double MAX_TIMEOUT_VALUE = 99.0;
 constexpr int MAX_PAWNS = 256;
 constexpr int MIN_SERVER_PORT = 0;
 constexpr int MIN_CLIENT_PORT = 1;
@@ -47,6 +48,22 @@ int validate_and_convert_number(const char* text_value, int min_value, int max_v
     }
 
     return static_cast<int>(value);
+}
+
+double validate_and_convert_double(const char* text_value, double min_value, double max_value) {
+    char* endptr;
+    double value = strtod(text_value, &endptr);
+
+    if (text_value == endptr || *endptr != '\0' || value < min_value || value > max_value) {
+        return static_cast<double>(INVALID_VALUE);
+    }
+
+    return value;
+}
+
+uint64_t get_current_time_ms() {
+    auto now = std::chrono::steady_clock::now().time_since_epoch();
+    return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(now).count());
 }
 
 void ensure_not_set(bool flag, const std::string& message) {
@@ -91,10 +108,10 @@ void parse_arguments(int argc, char* argv[], AppConfig& config, const char* allo
 
         case 't':
             ensure_not_set(has_timeout, "multiple -t options provided.");
-            config.timeout = validate_and_convert_number(optarg, MIN_TIMEOUT_VALUE, MAX_TIMEOUT_VALUE);
+            config.timeout = validate_and_convert_double(optarg, MIN_TIMEOUT_VALUE, MAX_TIMEOUT_VALUE);
 
-            if (config.timeout == INVALID_VALUE) {
-                fatal("invalid timeout value. expected a value from 1 to 99.");
+            if (config.timeout == static_cast<double>(INVALID_VALUE)) {
+                fatal("invalid timeout value. expected a value from 1.0 to 99.0");
             }
 
             has_timeout = true;
@@ -157,7 +174,8 @@ std::vector<std::string> split_message(const std::string& message, char delimite
     return result;
 }
 
-int validate_message_format(const std::string& buffer, const std::vector<std::string>& parts, size_t expected_parts_count) {
+int validate_message_format(const std::string& buffer, const std::vector<std::string>& parts,
+                            size_t expected_parts_count) {
     // validate number of message parts
     if (parts.size() != expected_parts_count) {
         if (parts.size() < expected_parts_count) {

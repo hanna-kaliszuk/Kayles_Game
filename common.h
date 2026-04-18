@@ -39,7 +39,7 @@ struct AppConfig {
     std::string pawn_row;        // initial board layout
     std::string message;         // human-readable message to send
     int port = INVALID_VALUE;    // UDP port number
-    int timeout = INVALID_VALUE; // session inactivity timeout in seconds
+    double timeout = static_cast<double>(INVALID_VALUE); // session inactivity timeout in seconds
 };
 
 /**
@@ -54,6 +54,21 @@ struct AppConfig {
  * @return parsed integer on success, INVALID_VALUE on failure
 **/
 int validate_and_convert_number(const char* text_value, int min_value, int max_value);
+
+/**
+ * @brief Parses a double string and validates it against and inclusive range.
+ *
+ * Uses strtol() for conversion. Returns INVALID_VALUE if the string is not a valid number or if the number falls
+ * outside the given range.
+ *
+ * @param text_value null-terminated string to parse
+ * @param min_value minimum acceptable value (inclusive)
+ * @param max_value maximum acceptable value (inclusive)
+ * @return parsed double on success, INVALID_VALUE on failure
+**/
+double validate_and_convert_double(const char* text_value, double min_value, double max_value);
+
+uint64_t get_current_time_ms();
 
 /**
  * @brief Terminates the process if a flag has already been set.

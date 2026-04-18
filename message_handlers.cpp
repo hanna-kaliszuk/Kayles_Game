@@ -86,7 +86,8 @@ static GameState* find_game_and_verify_players(uint32_t game_id, uint32_t player
 /**
  * @brief Helper function to send the current game state to the client.
  *
- * The function calculates the size of the message, writes in the parameters in the specified order(game_id -> player_a_id -> player_b_id -> game_state -> max_pawn)
+ * The function calculates the size of the message, writes in the parameters in the specified order
+ * (game_id -> player_a_id -> player_b_id -> game_state -> max_pawn)
  * and sends the message to the client. 
  * 
  * @param game_state the game state structure of the game
@@ -144,7 +145,7 @@ void handle_join_game(const char* buf, size_t len, std::unordered_map<uint32_t, 
             // assign the client as the second player and start the game
             game.second.player_b_id = assigned_player_id;
             game.second.status = TURN_B;
-            game.second.last_activity = time(nullptr);
+            game.second.last_activity = get_current_time_ms();
 
             current_game_id = game.first;
             found = true;
@@ -175,7 +176,7 @@ void handle_join_game(const char* buf, size_t len, std::unordered_map<uint32_t, 
             new_game.player_a_id = assigned_player_id;
             new_game.player_b_id = WAITING_FOR_OPPONENT;
             new_game.status = WAITING_FOR_OPPONENT;
-            new_game.last_activity = time(nullptr);
+            new_game.last_activity = get_current_time_ms();
 
             active_games[current_game_id] = new_game;
             std::cout << "game no " << current_game_id << " created. player no " << assigned_player_id
@@ -239,7 +240,7 @@ void handle_make_move_one(const char* buf, size_t len, std::unordered_map<uint32
 
     // change game state
     game->status = verify_game_state_after_move(*game);
-    game->last_activity = time(nullptr);
+    game->last_activity = get_current_time_ms();
 
     send_game_state(*game, game_id, socket_fd, client_addr);
 }
@@ -293,7 +294,7 @@ void handle_make_move_two(const char* buf, size_t len, std::unordered_map<uint32
 
     // change game state
     game->status = verify_game_state_after_move(*game);
-    game->last_activity = time(nullptr);
+    game->last_activity = get_current_time_ms();
 
     send_game_state(*game, game_id, socket_fd, client_addr);
 }
@@ -335,7 +336,7 @@ void handle_give_up(const char* buf, size_t len, std::unordered_map<uint32_t, Ga
 
     // change game state accordingly
     game->status = (game->player_a_id == player_id) ? WIN_B : WIN_A;
-    game->last_activity = time(nullptr);
+    game->last_activity = get_current_time_ms();
 
     send_game_state(*game, game_id, socket_fd, client_addr);
 }
@@ -367,7 +368,7 @@ void handle_keep_alive(const char* buf, size_t len, std::unordered_map<uint32_t,
     }
 
     // change game state accordingly
-    game->last_activity = time(nullptr);
+    game->last_activity = get_current_time_ms();
 
     send_game_state(*game, game_id, socket_fd, client_addr);
 }
