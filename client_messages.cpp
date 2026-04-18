@@ -109,7 +109,7 @@ static void handle_keep_alive_client(const std::vector<std::string>&p, std::vect
 }
 
 static void handle_give_up_client(const std::vector<std::string>&p, std::vector<char>& buf) {
-    if (p.size() != 3) {
+    if (p.size() != GIVE_UP_PARTS) {
         fatal("MSG_GIVE_UP expects: 4/<player_id>/<game_id>");
     }
 
