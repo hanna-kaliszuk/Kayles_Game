@@ -15,20 +15,12 @@
 #include <unistd.h>
 
 #include "err.h"
+#include "game_logic.h" // to get pawn constants
 
-
-// highest valid UDP port number
 constexpr int MAX_PORT_NUMBER = 65535;
-
-// shortest acceptable session timeout (seconds)
 constexpr int MIN_TIMEOUT_VALUE = 1;
-
-// longest acceptable session timeout (seconds)
 constexpr int MAX_TIMEOUT_VALUE = 99;
-
 constexpr int MAX_PAWNS = 256;
-constexpr char PAWN_STANDING = '1';
-constexpr char PAWN_KNOCKED_DOWN = '0';
 constexpr int MIN_SERVER_PORT = 0;
 constexpr int MIN_CLIENT_PORT = 1;
 
@@ -38,7 +30,7 @@ int validate_and_convert_number(const char* text_value, int min_value, int max_v
 
     long value = strtol(text_value, &endptr, 10);
 
-    // empty string
+    // empty string pr not a number
     if (text_value == endptr) {
         return INVALID_VALUE;
     }
@@ -69,7 +61,7 @@ static bool is_valid_pawn_row(const std::string& pawns) {
 
     if (pawns.front() != PAWN_STANDING || pawns.back() != PAWN_STANDING) return false;
 
-    return all_of(pawns.begin(), pawns.end(), [](char c) {
+    return std::ranges::all_of(pawns, [](char c) {
         return c == PAWN_STANDING || c == PAWN_KNOCKED_DOWN;
     });
 }
@@ -120,6 +112,8 @@ void parse_arguments(int argc, char* argv[], AppConfig& config, const char* allo
         case 'p':
             {
                 ensure_not_set(has_port, "multiple -p options provided.");
+
+                // server can bind to port 0 (auto-assign)
                 int min_port = is_server ? MIN_SERVER_PORT : MIN_CLIENT_PORT;
                 config.port = validate_and_convert_number(optarg, min_port, MAX_PORT_NUMBER);
 
@@ -154,6 +148,7 @@ std::vector<std::string> split_message(const std::string& message, char delimite
 
     std::stringstream tokenStream(message);
 
+    // extract chunks
     while (getline(tokenStream, s, delimiter)) {
         result.push_back(s);
     }
@@ -168,12 +163,13 @@ int validate_message_format(const std::string& buffer, const std::vector<std::st
             return static_cast<uint8_t>(buffer.length());
         }
         else {
-            // first missing part
+            // too many arguments: offset of the first excess part
             size_t length_sum = 0;
             for (size_t i = 0; i < expected_parts_count; i++) {
                 length_sum += parts[i].length();
             }
 
+            // inlude delimiters in the count
             length_sum += (expected_parts_count - 1);
             return static_cast<uint8_t>(length_sum);
         }
@@ -188,11 +184,12 @@ int validate_message_format(const std::string& buffer, const std::vector<std::st
                 return static_cast<int>(current_idx + i);
             }
         }
+
         // +1 for the separator
         current_idx += parts[p].length() + 1;
     }
 
-    return NO_ERROR; // brak błędu
+    return NO_ERROR;
 }
 
 uint32_t read_u32(const char* buf, size_t offset) {

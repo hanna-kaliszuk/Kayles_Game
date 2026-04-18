@@ -28,12 +28,6 @@ constexpr int MESSAGE_LEN = 12;
 // returned by validate_message_format() when no error is found
 constexpr int NO_ERROR = (-1);
 
-// maximum number of delimited parts a client message can contain
-constexpr int MAX_MESSAGE_PARTS = 4;
-
-// minimum number of delimited parts a client message can contain
-constexpr int MIN_MESSAGE_PARTS = 0;
-
 /**
  * @brief Runtime configuration of the application, parsed from command line arguments.
  *
@@ -41,10 +35,10 @@ constexpr int MIN_MESSAGE_PARTS = 0;
  * are required depends on the allowed_flags passed to parse_arguments().
 **/
 struct AppConfig {
-    std::string address; // IPv4 address (dotted-decimal or domain)
-    std::string pawn_row; // initial board layout
-    std::string message; // human-readable message to send
-    int port = INVALID_VALUE; // UDP port number
+    std::string address;         // IPv4 address (dotted-decimal or domain)
+    std::string pawn_row;        // initial board layout
+    std::string message;         // human-readable message to send
+    int port = INVALID_VALUE;    // UDP port number
     int timeout = INVALID_VALUE; // session inactivity timeout in seconds
 };
 
