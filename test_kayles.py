@@ -449,13 +449,7 @@ class TestKaylesServerCliValidation(unittest.TestCase):
         self.assertEqual(proc.returncode, 1)
 
 
-# -----------------------------
-# Additional tests
-# Append below your current test classes
-# -----------------------------
-
 from contextlib import closing
-
 
 def free_udp_port_more():
     with closing(socket.socket(socket.AF_INET, socket.SOCK_DGRAM)) as s:

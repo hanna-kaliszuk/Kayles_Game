@@ -9,15 +9,13 @@
 
 #include "game_logic.h"
 
-using namespace std;
-
 // number of pawns packed into a single byte of pawn_row
 constexpr size_t BITS_PER_BYTE = 8u;
 
 // offset used to convert a within-byte pawn position into a bit index.
 constexpr size_t BIT_INDEX_OFFSET = BITS_PER_BYTE - 1u;
 
-void initialize_pawn_row(const string& str_pawns, GameState& game) {
+void initialize_pawn_row(const std::string& str_pawns, GameState& game) {
     // indices are 0-based
     game.max_pawn = static_cast<uint8_t>(str_pawns.length() - 1);
 
@@ -37,8 +35,8 @@ void initialize_pawn_row(const string& str_pawns, GameState& game) {
     }
 }
 
-string serialize_pawn_row(const GameState& game) {
-    string result;
+std::string serialize_pawn_row(const GameState& game) {
+    std::string result;
 
     // reconstruct the string
     for (size_t i = 0; i <= game.max_pawn; i++) {
