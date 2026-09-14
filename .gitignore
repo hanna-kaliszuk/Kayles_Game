@@ -19,3 +19,6 @@ cmake_install.cmake
 
 # macOS
 .DS_Store
+
+# Python
+__pycache__/

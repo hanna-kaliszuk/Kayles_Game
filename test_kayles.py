@@ -1,5 +1,4 @@
 import os
-import math
 import socket
 import struct
 import subprocess
@@ -448,19 +447,6 @@ class TestKaylesServerCliValidation(unittest.TestCase):
         proc = self.run_server(["-r", "1", "-a", "300.300.300.300", "-p", "0", "-t", "2"])
         self.assertEqual(proc.returncode, 1)
 
-
-from contextlib import closing
-
-def free_udp_port_more():
-    with closing(socket.socket(socket.AF_INET, socket.SOCK_DGRAM)) as s:
-        s.bind((HOST, 0))
-        return s.getsockname()[1]
-
-
-def pack_game_state_more(game_id, player_a_id, player_b_id, status, max_pawn, pawn_row):
-    return struct.pack('!I I I B B', game_id, player_a_id, player_b_id, status, max_pawn) + pawn_row
-
-
 class TestKaylesServerMore(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -468,7 +454,7 @@ class TestKaylesServerMore(unittest.TestCase):
             raise FileNotFoundError(f"{SERVER_BIN} not found.")
 
     def setUp(self):
-        self.port = free_udp_port_more()
+        self.port = free_udp_port()
         self.server_proc = subprocess.Popen(
             [SERVER_BIN, '-r', '11111', '-a', HOST, '-p', str(self.port), '-t', '2'],
             stdout=subprocess.PIPE,
@@ -698,7 +684,7 @@ class TestKaylesClientMore(unittest.TestCase):
                 self.assertEqual(proc.returncode, 1)
 
     def test_client_handles_timeout_without_hanging(self):
-        port = free_udp_port_more()
+        port = free_udp_port()
         proc = subprocess.Popen(
             [CLIENT_BIN, '-a', HOST, '-p', str(port), '-m', '0/999', '-t', '1'],
             stdout=subprocess.PIPE,
