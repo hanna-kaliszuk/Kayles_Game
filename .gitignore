@@ -1,0 +1,21 @@
+# IDE
+.idea/
+
+# Build directories
+build/
+cmake-build-*/
+
+# Compiled binaries and object files
+*.o
+*.a
+*.so
+kayles_server
+kayles_client
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+
+# macOS
+.DS_Store
