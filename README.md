@@ -1,5 +1,5 @@
 # Kayles Game
-![CI](https://github.com/hanna-kaliszuk/Kayles_Game/actions/workflows/test.yml/badge.svg?branch=main)
+![CI](https://github.com/hanna-kaliszuk/Kayles_Game/actions/workflows/tests.yml/badge.svg?branch=main)
 
 
 **A C++23 networked game built directly on UDP sockets.**
