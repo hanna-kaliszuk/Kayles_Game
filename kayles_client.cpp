@@ -42,8 +42,6 @@
 #include "err.h"
 #include "game_logic.h"
 
-using namespace std;
-
 constexpr size_t OFF_STATE_GAME_ID  = 0u;
 constexpr size_t OFF_STATE_PLAYER_A = 4u;
 constexpr size_t OFF_STATE_PLAYER_B = 8u;
@@ -151,7 +149,7 @@ static void receive_and_display_message(int socket_fd) {
         uint8_t status = static_cast<uint8_t>(recv_buffer[OFF_STATE_STATUS]);
         uint8_t max_pawn = static_cast<uint8_t>(recv_buffer[OFF_STATE_MAX_PAWN]);
 
-        string pawns_str = "";
+        std::string pawns_str = "";
 
         size_t pawns_bytes = static_cast<size_t>(received_len) - 14;
 

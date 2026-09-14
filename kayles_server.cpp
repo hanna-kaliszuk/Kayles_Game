@@ -108,17 +108,15 @@
 #include "err.h"
 #include "message_handlers.h"
 
-using namespace std;
-
 constexpr uint8_t ERROR_IDX_TYPE = 0; 
 
 /**
  * @brief Type alias for the message dispatch function to simplify the handler map. 
 **/
-using MessageHandler = function<void(
+using MessageHandler = std::function<void(
     const char* buf,
     size_t len,
-    unordered_map<uint32_t, GameState>& active_games,
+    std::unordered_map<uint32_t, GameState>& active_games,
     const GameState& template_game,
     int socket_fd,
     const struct sockaddr_in& client_addr
@@ -180,7 +178,7 @@ static int create_sever_socket(const AppConfig& config) {
     socklen_t len = sizeof(addr); 
 
     if (getsockname(socket_fd, (sockaddr*)&addr, &len) == 0) {
-        cout << "running server on port " << ntohs(addr.sin_port) << endl;
+        std::cout << "running server on port " << ntohs(addr.sin_port) << std::endl;
     }
 
     return socket_fd;
@@ -197,7 +195,7 @@ static int create_sever_socket(const AppConfig& config) {
  * 
  * @note The function modifies active_games structure. 
 **/
-static void remove_timed_out_games(unordered_map<uint32_t, GameState>& active_games, const double timeout_seconds) {
+static void remove_timed_out_games(std::unordered_map<uint32_t, GameState>& active_games, const double timeout_seconds) {
     const uint64_t current_time = get_current_time_ms();
 
     // to miliseconds
@@ -206,7 +204,7 @@ static void remove_timed_out_games(unordered_map<uint32_t, GameState>& active_ga
     // chceck for every active game
     for (auto it = active_games.begin(); it != active_games.end();) {
         if (current_time - it->second.last_activity > timeout_ms) {
-            cout << "game no " << it->first << " timed out" << endl;
+            std::cout << "game no " << it->first << " timed out" << std::endl;
             it = active_games.erase(it);
         }
         else {
@@ -276,7 +274,7 @@ static void run_server(const AppConfig& config, const GameState& template_game) 
     // buffer for incoming messages 
     char buffer[BUFFER_SIZE];
 
-    unordered_map<uint32_t, GameState> active_games;
+    std::unordered_map<uint32_t, GameState> active_games;
 
     while (true) {
         struct sockaddr_in client_address;
@@ -307,8 +305,8 @@ static void run_server(const AppConfig& config, const GameState& template_game) 
         // convert client port 
         uint16_t client_port = ntohs(client_address.sin_port);
 
-        cout << "received " << received_len << " bytes from "
-            << client_ip << ":" << client_port << endl;
+        std::cout << "received " << received_len << " bytes from "
+            << client_ip << ":" << client_port << std::endl;
 
         // clean up timed-out games 
         remove_timed_out_games(active_games, config.timeout);
