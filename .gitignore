@@ -4,7 +4,6 @@
 # Build directories
 build/
 cmake-build-*/
-*.o
 
 # Compiled binaries and object files
 *.o
